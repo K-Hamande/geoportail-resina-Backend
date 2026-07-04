@@ -1,0 +1,30 @@
+resina:
+  message: "Profil DEV actif - vous etes en local"
+  access-token: "dev-token"
+  rate-limit-capacity: 10
+  netxms:
+    base-url: "http://localhost:8080/mock-netxms"
+    bearer-token: "dev-token"
+
+spring:
+    datasource:
+        url: jdbc:postgresql://localhost:5432/geoportail_resina_db
+        username: postgres
+        password: admin@
+        driver-class-name: org.postgresql.Driver
+
+
+Spring:
+    jpa:
+        hibernate:
+            ddl-auto: update
+        show-sql: true
+        properties:
+            hibernate:
+                default_schema: geoportail_resina
+                dialect: org.hibernate.dialect.PostgreSQLDialect
+                format_sql: true
+  
+jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Africa/Ouagadougou
