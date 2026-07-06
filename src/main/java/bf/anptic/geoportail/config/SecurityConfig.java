@@ -30,7 +30,7 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    @Bean
+@Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
@@ -44,14 +44,14 @@ public class SecurityConfig {
             .authorizeHttpRequests(authz -> authz
                     .requestMatchers("/api/v1/**").permitAll()
                     .requestMatchers("/mock-netxms/**").permitAll()
-                    // NOUVEAU : le Backoffice exige une authentification
-                    // (login/mot de passe), verifiee via BackofficeUserDetailsService
                     .requestMatchers("/backoffice/api/v1/**").authenticated()
                     .anyRequest().denyAll()
             )
-            // httpBasic() active l'authentification HTTP Basic standard :
-            // le navigateur/client envoie "Authorization: Basic base64(login:motdepasse)"
-            .httpBasic(basic -> {})
+            .httpBasic(basic -> basic.authenticationEntryPoint((request, response, authException) -> {
+                response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"message\":\"Authentification requise\"}");
+            }))
             .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(siteAccessTokenFilter, UsernamePasswordAuthenticationFilter.class);
 
