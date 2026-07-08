@@ -14,6 +14,8 @@ import bf.anptic.geoportail.service.AuditService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import bf.anptic.geoportail.model.AdminUser;
+import bf.anptic.geoportail.repository.AdminUserRepository;
 
 import java.util.List;
 
@@ -23,13 +25,16 @@ public class AdminSiteService {
     private final SiteRepository siteRepository;
     private final EquipmentRepository equipmentRepository;
     private final AuditService auditService;
+    private final AdminUserRepository adminUserRepository;
 
     public AdminSiteService(SiteRepository siteRepository,
                              EquipmentRepository equipmentRepository,
-                             AuditService auditService) {
+                             AuditService auditService,
+                             AdminUserRepository adminUserRepository) {
         this.siteRepository = siteRepository;
         this.equipmentRepository = equipmentRepository;
         this.auditService = auditService;
+        this.adminUserRepository = adminUserRepository;
     }
 
     public List<SiteAdminResponse> listAllSites() {
@@ -38,7 +43,10 @@ public class AdminSiteService {
                 .toList();
     }
 
-    public SiteAdminResponse createOrUpdateSite(SiteAdminRequest request, String auteur) {
+    public SiteAdminResponse createOrUpdateSite(SiteAdminRequest request, String auteur,
+                                                 org.springframework.security.core.Authentication authentication) {
+        verifierAccesSite(request.siteId(), authentication);
+
         boolean isNew = siteRepository.findById(request.siteId()).isEmpty();
 
         Site site = siteRepository.findById(request.siteId())
@@ -69,7 +77,10 @@ public class AdminSiteService {
         return toSiteResponse(saved);
     }
 
-    public void setActive(String siteId, boolean active, String auteur) {
+    public void setActive(String siteId, boolean active, String auteur,
+                           org.springframework.security.core.Authentication authentication) {
+        verifierAccesSite(siteId, authentication);
+
         Site site = findSiteOrThrow(siteId);
         site.setActif(active);
         siteRepository.save(site);
@@ -172,5 +183,30 @@ public class AdminSiteService {
                 equipment.getLibelleAffiche(),
                 equipment.getNetxmsObjectId()
         );
+    }
+
+
+
+
+    /**
+     * Verifie que l'utilisateur connecte a le droit d'agir sur ce site.
+     * Leve une 403 Forbidden sinon (§3.2.6b : "attribution de droits par
+     * site ou globaux").
+     */
+    private void verifierAccesSite(String siteId, org.springframework.security.core.Authentication authentication) {
+        boolean superAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_SUPER_ADMIN"));
+
+        if (superAdmin) {
+            return; // acces total, aucune restriction
+        }
+
+        AdminUser user = adminUserRepository.findByLoginAndActifTrue(authentication.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Compte introuvable"));
+
+        if (!user.peutAccederAuSite(siteId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Vous n'avez pas les droits sur le site : " + siteId);
+        }
     }
 }

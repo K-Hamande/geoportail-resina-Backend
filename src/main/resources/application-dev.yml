@@ -6,6 +6,15 @@ resina:
     base-url: "http://localhost:8080/mock-netxms"
     bearer-token: "dev-token"
 
+
+# Compte super-admin cree automatiquement au premier demarrage
+  # (DataInitializer) si aucun compte de ce login n'existe deja.
+bootstrap:
+    admin-login: ${RESINA_BOOTSTRAP_ADMIN_LOGIN:admin.dest}
+    admin-password: ${RESINA_BOOTSTRAP_ADMIN_PASSWORD:ChangeMe123!}
+    admin-nom-complet: ${RESINA_BOOTSTRAP_ADMIN_NOM:Administrateur ANPTIC}
+
+
 spring:
     datasource:
         url: jdbc:postgresql://localhost:5432/geoportail_resina_db

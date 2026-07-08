@@ -7,7 +7,7 @@ import java.util.Optional;
 
 public interface AdminUserRepository extends JpaRepository<AdminUser, Long> {
 
-    // "query method" : Spring Data JPA genere automatiquement
-    // "SELECT * FROM admin_users WHERE login = ? AND actif = true"
     Optional<AdminUser> findByLoginAndActifTrue(String login);
+
+    boolean existsByLogin(String login);
 }

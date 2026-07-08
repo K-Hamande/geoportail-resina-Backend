@@ -30,18 +30,18 @@ public class AdminUserService {
         this.auditService = auditService;
     }
 
-    public AdminUserResponse createUser(AdminUserCreateRequest request, String auteur) {
+public AdminUserResponse createUser(AdminUserCreateRequest request, String auteur) {
         AdminUser user = new AdminUser();
         user.setLogin(request.login());
         user.setNomComplet(request.nomComplet());
-        // On hache le mot de passe ICI, une seule fois, au moment de la
-        // creation - c'est le hash qui sera stocke, jamais le mot de
-        // passe recu en clair.
         user.setMotDePasseHash(passwordEncoder.encode(request.motDePasse()));
+        user.setRole(AdminUser.Role.valueOf(request.role()));
+        user.setSitesAutorises(request.sitesAutorises() != null ? request.sitesAutorises() : java.util.Set.of());
         user.setActif(true);
 
         AdminUser saved = adminUserRepository.save(user);
-        auditService.record(auteur, "Création utilisateur Backoffice", "login=" + saved.getLogin());
+        auditService.record(auteur, "Création utilisateur Backoffice",
+                "login=" + saved.getLogin() + " role=" + saved.getRole());
 
         return toResponse(saved);
     }
@@ -77,6 +77,9 @@ public class AdminUserService {
     // Methode privee de "mapping" : convertit l'entite JPA en DTO de
     // reponse, en excluant volontairement motDePasseHash.
     private AdminUserResponse toResponse(AdminUser user) {
-        return new AdminUserResponse(user.getId(), user.getLogin(), user.getNomComplet(), user.getActif());
+        return new AdminUserResponse(
+                user.getId(), user.getLogin(), user.getNomComplet(),
+                user.getRole().name(), user.getSitesAutorises(), user.getActif()
+        );
     }
 }

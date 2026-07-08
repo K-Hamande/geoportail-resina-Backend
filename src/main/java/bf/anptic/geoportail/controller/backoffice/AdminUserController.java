@@ -4,6 +4,7 @@ import bf.anptic.geoportail.dto.AdminUserCreateRequest;
 import bf.anptic.geoportail.dto.AdminUserResponse;
 import bf.anptic.geoportail.dto.ResetPasswordRequest;
 import bf.anptic.geoportail.service.backoffice.AdminUserService;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,6 +12,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/backoffice/api/v1/users")
+@PreAuthorize("hasRole('SUPER_ADMIN')")
 public class AdminUserController {
 
     private final AdminUserService adminUserService;

@@ -1,9 +1,9 @@
 package bf.anptic.geoportail.controller.backoffice;
 
-import bf.anptic.geoportail.dto.EquipmentAdminRequest;
-import bf.anptic.geoportail.dto.EquipmentResponse;
 import bf.anptic.geoportail.dto.CartographyItemDto;
 import bf.anptic.geoportail.dto.CartographyUpdateRequest;
+import bf.anptic.geoportail.dto.EquipmentAdminRequest;
+import bf.anptic.geoportail.dto.EquipmentResponse;
 import bf.anptic.geoportail.dto.SiteAdminRequest;
 import bf.anptic.geoportail.dto.SiteAdminResponse;
 import bf.anptic.geoportail.service.backoffice.AdminSiteService;
@@ -28,18 +28,19 @@ public class AdminSiteController {
     }
 
     @PostMapping("/sites")
-    public SiteAdminResponse createOrUpdateSite(@RequestBody SiteAdminRequest request, Authentication authentication) {
-        return adminSiteService.createOrUpdateSite(request, authentication.getName());
+    public SiteAdminResponse createOrUpdateSite(@RequestBody SiteAdminRequest request,
+                                                 Authentication authentication) {
+        return adminSiteService.createOrUpdateSite(request, authentication.getName(), authentication);
     }
 
     @PostMapping("/sites/{siteId}/deactivate")
     public void deactivate(@PathVariable String siteId, Authentication authentication) {
-        adminSiteService.setActive(siteId, false, authentication.getName());
+        adminSiteService.setActive(siteId, false, authentication.getName(), authentication);
     }
 
     @PostMapping("/sites/{siteId}/activate")
     public void activate(@PathVariable String siteId, Authentication authentication) {
-        adminSiteService.setActive(siteId, true, authentication.getName());
+        adminSiteService.setActive(siteId, true, authentication.getName(), authentication);
     }
 
     @GetMapping("/sites/{siteId}/equipments")
@@ -59,7 +60,6 @@ public class AdminSiteController {
         adminSiteService.deleteEquipment(equipmentId, authentication.getName());
     }
 
-
     @GetMapping("/cartography")
     public List<CartographyItemDto> listCartography() {
         return adminSiteService.listCartography();
@@ -71,7 +71,4 @@ public class AdminSiteController {
                                    Authentication authentication) {
         adminSiteService.updateCartography(siteId, request, authentication.getName());
     }
-
-
-
 }
