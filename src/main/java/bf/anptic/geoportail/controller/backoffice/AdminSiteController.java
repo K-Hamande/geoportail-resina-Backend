@@ -23,13 +23,12 @@ public class AdminSiteController {
     }
 
     @GetMapping("/sites")
-    public List<SiteAdminResponse> listAllSites() {
-        return adminSiteService.listAllSites();
+    public List<SiteAdminResponse> listAllSites(Authentication authentication) {
+        return adminSiteService.listAllSites(authentication);
     }
 
     @PostMapping("/sites")
-    public SiteAdminResponse createOrUpdateSite(@RequestBody SiteAdminRequest request,
-                                                 Authentication authentication) {
+    public SiteAdminResponse createOrUpdateSite(@RequestBody SiteAdminRequest request, Authentication authentication) {
         return adminSiteService.createOrUpdateSite(request, authentication.getName(), authentication);
     }
 
@@ -44,31 +43,31 @@ public class AdminSiteController {
     }
 
     @GetMapping("/sites/{siteId}/equipments")
-    public List<EquipmentResponse> listEquipments(@PathVariable String siteId) {
-        return adminSiteService.listEquipments(siteId);
+    public List<EquipmentResponse> listEquipments(@PathVariable String siteId, Authentication authentication) {
+        return adminSiteService.listEquipments(siteId, authentication);
     }
 
     @PostMapping("/sites/{siteId}/equipments")
     public EquipmentResponse addEquipment(@PathVariable String siteId,
                                            @RequestBody EquipmentAdminRequest request,
                                            Authentication authentication) {
-        return adminSiteService.addEquipment(siteId, request, authentication.getName());
+        return adminSiteService.addEquipment(siteId, request, authentication.getName(), authentication);
     }
 
     @DeleteMapping("/equipments/{equipmentId}")
     public void deleteEquipment(@PathVariable Long equipmentId, Authentication authentication) {
-        adminSiteService.deleteEquipment(equipmentId, authentication.getName());
+        adminSiteService.deleteEquipment(equipmentId, authentication.getName(), authentication);
     }
 
     @GetMapping("/cartography")
-    public List<CartographyItemDto> listCartography() {
-        return adminSiteService.listCartography();
+    public List<CartographyItemDto> listCartography(Authentication authentication) {
+        return adminSiteService.listCartography(authentication);
     }
 
     @PutMapping("/sites/{siteId}/cartography")
     public void updateCartography(@PathVariable String siteId,
                                    @RequestBody CartographyUpdateRequest request,
                                    Authentication authentication) {
-        adminSiteService.updateCartography(siteId, request, authentication.getName());
+        adminSiteService.updateCartography(siteId, request, authentication.getName(), authentication);
     }
 }

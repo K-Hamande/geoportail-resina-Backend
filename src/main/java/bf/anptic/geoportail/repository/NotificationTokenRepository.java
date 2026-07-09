@@ -13,4 +13,7 @@ public interface NotificationTokenRepository extends JpaRepository<NotificationT
     Optional<NotificationToken> findByToken(String token);
 
     void deleteByToken(String token);
+
+
+    
 }
