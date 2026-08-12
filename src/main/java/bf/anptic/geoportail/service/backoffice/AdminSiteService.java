@@ -2,7 +2,7 @@ package bf.anptic.geoportail.service.backoffice;
 
 import bf.anptic.geoportail.dto.CartographyItemDto;
 import bf.anptic.geoportail.dto.CartographyUpdateRequest;
-import bf.anptic.geoportail.dto.EquipmentAdminRequest;
+import bf.anptic.geoportail.dto.EquipmentFloorAssignmentRequest;
 import bf.anptic.geoportail.dto.EquipmentResponse;
 import bf.anptic.geoportail.dto.SiteAdminRequest;
 import bf.anptic.geoportail.dto.SiteAdminResponse;
@@ -102,32 +102,22 @@ public class AdminSiteService {
         auditService.record(auteur, active ? "Réactivation site" : "Désactivation site", "site=" + siteId);
     }
 
-    public EquipmentResponse addEquipment(String siteId, EquipmentAdminRequest request, String auteur, Authentication authentication) {
-        verifierAccesSite(siteId, authentication);
-
-        Site site = findSiteOrThrow(siteId);
-        Equipment equipment = new Equipment();
-        equipment.setSite(site);
-        equipment.setEtageLabel(request.etageLabel());
-        equipment.setType(Equipment.EquipmentType.valueOf(request.type()));
-        equipment.setLibelleAffiche(request.libelleAffiche());
-        equipment.setNetxmsObjectId(request.netxmsObjectId());
-
-        Equipment saved = equipmentRepository.save(equipment);
-        auditService.record(auteur, "Ajout équipement LAN",
-                "site=" + siteId + " équipement=" + saved.getLibelleAffiche() + " (" + saved.getEtageLabel() + ")");
-
-        return toEquipmentResponse(saved);
-    }
-
-    public void deleteEquipment(Long equipmentId, String auteur, Authentication authentication) {
+    // Les equipements sont decouverts automatiquement depuis NetXMS
+    // (EquipmentSyncService) - le backoffice ne peut plus qu'assigner
+    // un etage a un equipement deja synchronise.
+    public EquipmentResponse assignFloor(Long equipmentId, EquipmentFloorAssignmentRequest request, String auteur, Authentication authentication) {
         Equipment equipment = equipmentRepository.findById(equipmentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Équipement introuvable : " + equipmentId));
 
         verifierAccesSite(equipment.getSite().getSiteId(), authentication);
 
-        equipmentRepository.deleteById(equipmentId);
-        auditService.record(auteur, "Suppression équipement LAN", "equipmentId=" + equipmentId);
+        equipment.setEtageLabel(request.etageLabel());
+        Equipment saved = equipmentRepository.save(equipment);
+
+        auditService.record(auteur, "Assignation étage équipement",
+                "equipmentId=" + equipmentId + " étage=" + request.etageLabel());
+
+        return toEquipmentResponse(saved);
     }
 
     public void updateCartography(String siteId, CartographyUpdateRequest request, String auteur, Authentication authentication) {

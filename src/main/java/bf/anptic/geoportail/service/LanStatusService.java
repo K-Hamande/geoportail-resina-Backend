@@ -45,9 +45,8 @@ public class LanStatusService {
         // la liste des equipements qui s'y trouvent (valeur).
         Map<String, List<Equipment>> byFloor = new LinkedHashMap<>();
         for (Equipment eq : equipments) {
-            // computeIfAbsent : si la cle "etageLabel" n'existe pas encore
-            // dans la map, on cree une liste vide avant d'y ajouter l'equipement.
-            byFloor.computeIfAbsent(eq.getEtageLabel(), k -> new ArrayList<>()).add(eq);
+            String etage = eq.getEtageLabel() != null ? eq.getEtageLabel() : "Non assigné";
+            byFloor.computeIfAbsent(etage, k -> new ArrayList<>()).add(eq);
         }
 
         List<FloorStatusDto> floorStatuses = new ArrayList<>();

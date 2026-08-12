@@ -2,11 +2,12 @@ package bf.anptic.geoportail.controller.backoffice;
 
 import bf.anptic.geoportail.dto.CartographyItemDto;
 import bf.anptic.geoportail.dto.CartographyUpdateRequest;
-import bf.anptic.geoportail.dto.EquipmentAdminRequest;
+import bf.anptic.geoportail.dto.EquipmentFloorAssignmentRequest;
 import bf.anptic.geoportail.dto.EquipmentResponse;
 import bf.anptic.geoportail.dto.SiteAdminRequest;
 import bf.anptic.geoportail.dto.SiteAdminResponse;
 import bf.anptic.geoportail.service.backoffice.AdminSiteService;
+import bf.anptic.geoportail.service.backoffice.EquipmentSyncService;
 import bf.anptic.geoportail.service.backoffice.NetxmsSiteImportService;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -19,11 +20,14 @@ public class AdminSiteController {
 
     private final AdminSiteService adminSiteService;
     private final NetxmsSiteImportService netxmsSiteImportService;
+    private final EquipmentSyncService equipmentSyncService;
 
     public AdminSiteController(AdminSiteService adminSiteService,
-                                NetxmsSiteImportService netxmsSiteImportService) {
+                                NetxmsSiteImportService netxmsSiteImportService,
+                                EquipmentSyncService equipmentSyncService) {
         this.adminSiteService = adminSiteService;
         this.netxmsSiteImportService = netxmsSiteImportService;
+        this.equipmentSyncService = equipmentSyncService;
     }
 
     // Synchronise le catalogue des sites depuis netxmsdb (donnebase.siteadministratif,
@@ -59,16 +63,21 @@ public class AdminSiteController {
         return adminSiteService.listEquipments(siteId, authentication);
     }
 
-    @PostMapping("/sites/{siteId}/equipments")
-    public EquipmentResponse addEquipment(@PathVariable String siteId,
-                                           @RequestBody EquipmentAdminRequest request,
-                                           Authentication authentication) {
-        return adminSiteService.addEquipment(siteId, request, authentication.getName(), authentication);
+    // Assigne/modifie l'etage d'un equipement deja decouvert automatiquement
+    // depuis NetXMS. Ne cree ni ne supprime jamais d'equipement.
+    @PutMapping("/equipments/{equipmentId}/etage")
+    public EquipmentResponse assignEquipmentFloor(@PathVariable Long equipmentId,
+                                                    @RequestBody EquipmentFloorAssignmentRequest request,
+                                                    Authentication authentication) {
+        return adminSiteService.assignFloor(equipmentId, request, authentication.getName(), authentication);
     }
 
-    @DeleteMapping("/equipments/{equipmentId}")
-    public void deleteEquipment(@PathVariable Long equipmentId, Authentication authentication) {
-        adminSiteService.deleteEquipment(equipmentId, authentication.getName(), authentication);
+    // Synchronise le catalogue des equipements LAN depuis netxmsdb
+    // (geo_equipement, hors routeurs WAN). A appeler manuellement depuis
+    // le backoffice, comme la synchronisation des sites.
+    @PostMapping("/equipments/sync-netxms")
+    public EquipmentSyncService.SyncResult syncEquipmentsFromNetxms() {
+        return equipmentSyncService.syncEquipements();
     }
 
     @GetMapping("/cartography")
