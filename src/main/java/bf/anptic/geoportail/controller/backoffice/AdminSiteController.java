@@ -7,6 +7,7 @@ import bf.anptic.geoportail.dto.EquipmentResponse;
 import bf.anptic.geoportail.dto.SiteAdminRequest;
 import bf.anptic.geoportail.dto.SiteAdminResponse;
 import bf.anptic.geoportail.service.backoffice.AdminSiteService;
+import bf.anptic.geoportail.service.backoffice.NetxmsSiteImportService;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,9 +18,20 @@ import java.util.List;
 public class AdminSiteController {
 
     private final AdminSiteService adminSiteService;
+    private final NetxmsSiteImportService netxmsSiteImportService;
 
-    public AdminSiteController(AdminSiteService adminSiteService) {
+    public AdminSiteController(AdminSiteService adminSiteService,
+                                NetxmsSiteImportService netxmsSiteImportService) {
         this.adminSiteService = adminSiteService;
+        this.netxmsSiteImportService = netxmsSiteImportService;
+    }
+
+    // Synchronise le catalogue des sites depuis netxmsdb (donnebase.siteadministratif,
+    // filtre sur connectionresina = 'Oui'). A appeler manuellement depuis le backoffice
+    // (bouton "Synchroniser les sites"), pas automatique au demarrage.
+    @PostMapping("/sites/import-netxms")
+    public NetxmsSiteImportService.ImportResult importSitesFromNetxms() {
+        return netxmsSiteImportService.importSitesResina();
     }
 
     @GetMapping("/sites")

@@ -46,6 +46,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(authz -> authz
                     .requestMatchers("/api/v1/**").permitAll()
                     .requestMatchers("/mock-netxms/**").permitAll()
+                    .requestMatchers("/error").permitAll()
                     .requestMatchers("/backoffice/api/v1/**").authenticated()
                     .anyRequest().denyAll()
             )

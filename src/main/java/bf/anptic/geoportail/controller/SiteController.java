@@ -4,12 +4,14 @@ import bf.anptic.geoportail.dto.AnpticStatusDto;
 import bf.anptic.geoportail.dto.LanStatusDto;
 import bf.anptic.geoportail.dto.MapSiteDto;
 import bf.anptic.geoportail.dto.RegisterTokenRequest;
+import bf.anptic.geoportail.dto.SiteNetworkDto;
 import bf.anptic.geoportail.dto.SiteSummaryDto;
 import bf.anptic.geoportail.repository.SiteRepository;
 import bf.anptic.geoportail.service.AnpticStatusService;
 import bf.anptic.geoportail.service.LanStatusService;
 import bf.anptic.geoportail.service.MapService;
 import bf.anptic.geoportail.service.NotificationService;
+import bf.anptic.geoportail.service.SiteNetworkService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,17 +25,20 @@ public class SiteController {
     private final LanStatusService lanStatusService;
     private final NotificationService notificationService;
     private final MapService mapService;
+    private final SiteNetworkService siteNetworkService;
 
     public SiteController(SiteRepository siteRepository,
                            AnpticStatusService anpticStatusService,
                            LanStatusService lanStatusService,
                            NotificationService notificationService,
-                           MapService mapService) {
+                           MapService mapService,
+                           SiteNetworkService siteNetworkService) {
         this.siteRepository = siteRepository;
         this.anpticStatusService = anpticStatusService;
         this.lanStatusService = lanStatusService;
         this.notificationService = notificationService;
         this.mapService = mapService;
+        this.siteNetworkService = siteNetworkService;
     }
 
     @GetMapping("/sites")
@@ -51,6 +56,13 @@ public class SiteController {
     @GetMapping("/site/{id}/lan")
     public LanStatusDto getLanStatus(@PathVariable("id") String siteId) {
         return lanStatusService.getLanStatus(siteId);
+    }
+
+    // NOUVEAU : equipements + debit + disponibilite en temps reel, lus directement
+    // depuis netxmsdb (geo_equipement / geo_disponibilite), filtres par site.
+    @GetMapping("/site/{id}/reseau")
+    public SiteNetworkDto getSiteNetwork(@PathVariable("id") String siteId) {
+        return siteNetworkService.getSiteNetwork(siteId);
     }
 
     @PostMapping("/site/{id}/notifications/register")
