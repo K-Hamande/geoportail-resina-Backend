@@ -6,5 +6,6 @@ public record EquipmentResponse(
         String etageLabel,
         String type,
         String libelleAffiche,
+        String nomTechniqueNetxms,
         Integer netxmsObjectId
 ) {}

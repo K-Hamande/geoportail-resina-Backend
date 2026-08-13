@@ -28,6 +28,8 @@ public class Site {
 
     private String contactDsiTelephone;
 
+    private String contactDsiEmail;
+
     // §6.2 du CDC : identifiant du noeud correspondant dans NetXMS
     private Integer netxmsNodeId;
 
@@ -111,6 +113,14 @@ public class Site {
 
     public void setContactDsiTelephone(String contactDsiTelephone) {
         this.contactDsiTelephone = contactDsiTelephone;
+    }
+
+    public String getContactDsiEmail() {
+        return contactDsiEmail;
+    }
+
+    public void setContactDsiEmail(String contactDsiEmail) {
+        this.contactDsiEmail = contactDsiEmail;
     }
 
     public Integer getNetxmsNodeId() {

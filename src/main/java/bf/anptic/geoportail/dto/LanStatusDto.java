@@ -13,7 +13,8 @@ public record LanStatusDto(
         int equipementsEnPanne,
         List<FloorStatusDto> etats,
         String message,
-        String actionMessage   // null si tout fonctionne
+        String actionMessage,   // null si tout fonctionne
+        ContactDsiDto contactDsi   // peut etre null si aucun contact renseigne
 ) {
     // Un record peut contenir un AUTRE record imbrique, pour representer
     // une sous-structure (ici : le detail d'un etage).
@@ -31,5 +32,11 @@ public record LanStatusDto(
             String libelleAffiche,
             String type,
             NodeStatus status
+    ) {}
+
+    public record ContactDsiDto(
+            String nom,
+            String email,
+            String telephone
     ) {}
 }

@@ -1,6 +1,7 @@
 package bf.anptic.geoportail.service;
 
 import bf.anptic.geoportail.dto.LanStatusDto;
+import bf.anptic.geoportail.dto.LanStatusDto.ContactDsiDto;
 import bf.anptic.geoportail.dto.LanStatusDto.EquipmentDetailDto;
 import bf.anptic.geoportail.dto.LanStatusDto.FloorStatusDto;
 import bf.anptic.geoportail.model.Equipment;
@@ -20,9 +21,6 @@ import java.util.*;
 @Service
 public class LanStatusService {
 
-    // object_id est directement dans object_properties (deja accessible
-    // en integralite par geoportail_readonly). On ne lit ici QUE le statut,
-    // par lots via IN (:ids), pour tous les equipements LAN declares.
     private static final String SELECT_STATUTS = """
             SELECT object_id, status
             FROM public.object_properties
@@ -46,13 +44,9 @@ public class LanStatusService {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Site introuvable : " + siteId));
 
-        // 1) Tous les equipements DECLARES pour ce site (venant de notre base)
         List<Equipment> equipments = equipmentRepository.findBySite_SiteId(siteId);
-
-        // 2) Leur statut REEL, recupere depuis netxmsdb (par lots)
         Map<Integer, Integer> statusByObjectId = fetchStatuses(equipments);
 
-        // 3) Regrouper les equipements par etage.
         Map<String, List<Equipment>> byFloor = new LinkedHashMap<>();
         for (Equipment eq : equipments) {
             String etage = eq.getEtageLabel() != null ? eq.getEtageLabel() : "Non assigné";
@@ -72,7 +66,9 @@ public class LanStatusService {
             int floorActifs = 0;
             List<EquipmentDetailDto> details = new ArrayList<>();
 
+            int compteurGenerique = 0;
             for (Equipment eq : floorEquipments) {
+                compteurGenerique++;
                 Integer rawStatus = statusByObjectId.get(eq.getNetxmsObjectId());
                 NodeStatus eqStatus = NodeStatus.fromNetXmsSeverityCode(rawStatus);
                 boolean up = eqStatus == NodeStatus.OK;
@@ -80,9 +76,19 @@ public class LanStatusService {
                     floorActifs++;
                 }
 
+                // §4.4 du CDC : jamais de nom d'equipement technique (NetXMS)
+                // expose au decideur. Tant qu'un admin n'a pas defini de
+                // libelle personnalise, on affiche un libelle generique
+                // base sur le type + un numero d'ordre au sein de l'etage.
+                String nomAffiche = eq.getLibelleAffiche();
+                if (nomAffiche == null || nomAffiche.isBlank()) {
+                    String typeLabel = eq.getType() == Equipment.EquipmentType.COMMUTATEUR ? "Commutateur" : "Borne Wi-Fi";
+                    nomAffiche = typeLabel + " " + compteurGenerique;
+                }
+
                 details.add(new EquipmentDetailDto(
                         eq.getId(),
-                        eq.getLibelleAffiche(),
+                        nomAffiche,
                         eq.getType() != null ? eq.getType().name() : null,
                         eqStatus
                 ));
@@ -106,7 +112,16 @@ public class LanStatusService {
         String message = pannes == 0 ? "Aucun problème dans le bâtiment" : "Des équipements sont hors service";
         String actionMessage = pannes == 0 ? null : "Veuillez en informer votre DSI";
 
-        return new LanStatusDto(siteId, worstStatus, totalActifs, total, pannes, floorStatuses, message, actionMessage);
+        ContactDsiDto contactDsi = null;
+        if (site.getContactDsiNom() != null || site.getContactDsiEmail() != null || site.getContactDsiTelephone() != null) {
+            contactDsi = new ContactDsiDto(
+                    site.getContactDsiNom(),
+                    site.getContactDsiEmail(),
+                    site.getContactDsiTelephone()
+            );
+        }
+
+        return new LanStatusDto(siteId, worstStatus, totalActifs, total, pannes, floorStatuses, message, actionMessage, contactDsi);
     }
 
     private Map<Integer, Integer> fetchStatuses(List<Equipment> equipments) {

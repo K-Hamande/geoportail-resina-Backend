@@ -78,6 +78,7 @@ public class AdminSiteService {
         site.setLongitude(request.longitude());
         site.setContactDsiNom(request.contactDsiNom());
         site.setContactDsiTelephone(request.contactDsiTelephone());
+        site.setContactDsiEmail(request.contactDsiEmail());
         site.setNetxmsNodeId(request.netxmsNodeId());
         site.setNiveaux(request.niveaux());
 
@@ -112,10 +113,11 @@ public class AdminSiteService {
         verifierAccesSite(equipment.getSite().getSiteId(), authentication);
 
         equipment.setEtageLabel(request.etageLabel());
+        equipment.setLibelleAffiche(request.libelleAffiche());
         Equipment saved = equipmentRepository.save(equipment);
 
-        auditService.record(auteur, "Assignation étage équipement",
-                "equipmentId=" + equipmentId + " étage=" + request.etageLabel());
+        auditService.record(auteur, "Modification équipement",
+                "equipmentId=" + equipmentId + " étage=" + request.etageLabel() + " libellé=" + request.libelleAffiche());
 
         return toEquipmentResponse(saved);
     }
@@ -188,14 +190,15 @@ public class AdminSiteService {
         return new SiteAdminResponse(
                 site.getSiteId(), site.getNom(), site.getVille(), site.getRegionAdministrative(), site.getBatiment(),
                 site.getLatitude(), site.getLongitude(), site.getContactDsiNom(), site.getContactDsiTelephone(),
-                site.getNetxmsNodeId(), site.getNiveaux(), nombreEquipements, site.getActif()
+                site.getContactDsiEmail(), site.getNetxmsNodeId(), site.getNiveaux(), nombreEquipements, site.getActif()
         );
     }
 
-    private EquipmentResponse toEquipmentResponse(Equipment equipment) {
+    private EquipmentResponse toEquipmentResponse(Equipment eq) {
         return new EquipmentResponse(
-                equipment.getId(), equipment.getSite().getSiteId(), equipment.getEtageLabel(),
-                equipment.getType().name(), equipment.getLibelleAffiche(), equipment.getNetxmsObjectId()
+                eq.getId(), eq.getSite().getSiteId(), eq.getEtageLabel(),
+                eq.getType() != null ? eq.getType().name() : null,
+                eq.getLibelleAffiche(), eq.getNomTechniqueNetxms(), eq.getNetxmsObjectId()
         );
     }
 }

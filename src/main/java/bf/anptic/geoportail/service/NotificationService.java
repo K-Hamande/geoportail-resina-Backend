@@ -6,6 +6,8 @@ import bf.anptic.geoportail.model.NotificationToken;
 import bf.anptic.geoportail.model.Site;
 import bf.anptic.geoportail.repository.NotificationTokenRepository;
 import bf.anptic.geoportail.repository.SiteRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -15,6 +17,8 @@ import java.util.List;
 
 @Service
 public class NotificationService {
+
+    private static final Logger log = LoggerFactory.getLogger(NotificationService.class);
 
     private final NotificationTokenRepository notificationTokenRepository;
     private final SiteRepository siteRepository;
@@ -53,7 +57,20 @@ public class NotificationService {
                 ? notificationTokenRepository.findAll()
                 : notificationTokenRepository.findBySite_SiteIdAndActifTrue(siteId);
 
-        return tokens.stream().map(this::toResponse).toList();
+        // Ignore defensivement toute ligne "orpheline" (site_id NULL ou
+        // pointant vers un site supprime) plutot que de planter toute la
+        // liste a cause d'une seule ligne invalide - on journalise pour
+        // pouvoir la retrouver et la nettoyer en base si besoin.
+        return tokens.stream()
+                .filter(t -> {
+                    boolean valide = t.getSite() != null;
+                    if (!valide) {
+                        log.warn("Token de notification orphelin ignore (id={}, site absent)", t.getId());
+                    }
+                    return valide;
+                })
+                .map(this::toResponse)
+                .toList();
     }
 
     // Cote BACKOFFICE : suppression manuelle (§3.2.6b), avec audit cette fois

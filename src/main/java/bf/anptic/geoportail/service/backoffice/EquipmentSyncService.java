@@ -21,8 +21,9 @@ import java.util.Optional;
 // assimiles) depuis netxmsdb (geo_equipement) vers la table applicative
 // equipments. Le routeur WAN de chaque site est exclu (deja affiche par
 // /anptic). Les equipements ne sont JAMAIS crees/supprimes a la main dans
-// le backoffice - seul leur etage (etageLabel) est modifiable manuellement,
-// et jamais ecrase par une resynchronisation.
+// le backoffice - seuls leur etage (etageLabel) et leur libelle affiche
+// (libelleAffiche) sont modifiables manuellement, et jamais ecrases par
+// une resynchronisation.
 @Service
 public class EquipmentSyncService {
 
@@ -50,14 +51,12 @@ public class EquipmentSyncService {
     public static class SyncResult {
         public int crees;
         public int misAJour;
-        public int ignores;   // equipements dont le site n'est pas (encore) connu localement
+        public int ignores;
         public int total;
     }
 
     @Transactional
     public SyncResult syncEquipements() {
-        // Index netxmsNodeId -> Site, construit une seule fois pour eviter
-        // une requete par equipement (potentiellement plus d'un millier).
         Map<Integer, Site> siteByNetxmsNodeId = new HashMap<>();
         for (Site site : siteRepository.findAll()) {
             if (site.getNetxmsNodeId() != null) {
@@ -79,9 +78,6 @@ public class EquipmentSyncService {
         for (EquipementRow row : rows) {
             Site site = siteByNetxmsNodeId.get(row.siteadminId());
             if (site == null) {
-                // Equipement rattache a un site pas encore importe localement
-                // (cf. NetxmsSiteImportService) - on l'ignore pour cette fois,
-                // il sera repris au prochain sync une fois le site importe.
                 result.ignores++;
                 continue;
             }
@@ -92,9 +88,9 @@ public class EquipmentSyncService {
                 Equipment eq = existant.get();
                 eq.setSite(site);
                 eq.setType(mapType(row.type()));
-                eq.setLibelleAffiche(row.name());
-                // etageLabel volontairement PAS touche : assignation manuelle
-                // preservee d'un sync a l'autre.
+                eq.setNomTechniqueNetxms(row.name());
+                // etageLabel et libelleAffiche volontairement PAS touches :
+                // assignations manuelles preservees d'un sync a l'autre.
                 equipmentRepository.save(eq);
                 result.misAJour++;
             } else {
@@ -102,8 +98,9 @@ public class EquipmentSyncService {
                 eq.setSite(site);
                 eq.setNetxmsObjectId(row.objectId());
                 eq.setType(mapType(row.type()));
-                eq.setLibelleAffiche(row.name());
-                eq.setEtageLabel(null);   // a assigner manuellement dans le backoffice
+                eq.setNomTechniqueNetxms(row.name());
+                eq.setEtageLabel(null);       // a assigner manuellement
+                eq.setLibelleAffiche(null);   // reste null -> libelle generique a l'affichage (voir LanStatusService)
                 equipmentRepository.save(eq);
                 result.crees++;
             }
@@ -115,10 +112,6 @@ public class EquipmentSyncService {
         return result;
     }
 
-    // Simplification pragmatique : le modele actuel n'a que 2 categories
-    // (BORNE_WIFI / COMMUTATEUR) alors que netxmsdb en distingue davantage
-    // (CPE, PTP, PMP, Onduleur, Serveur...). A affiner si le besoin metier
-    // se precise plus tard.
     private static EquipmentType mapType(String netxmsType) {
         if (netxmsType != null && netxmsType.trim().equalsIgnoreCase("Switch")) {
             return EquipmentType.COMMUTATEUR;

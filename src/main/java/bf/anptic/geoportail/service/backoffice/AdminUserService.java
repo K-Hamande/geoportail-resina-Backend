@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import bf.anptic.geoportail.dto.AdminUserUpdateRequest;
 
 import java.util.List;
 
@@ -45,7 +46,19 @@ public AdminUserResponse createUser(AdminUserCreateRequest request, String auteu
 
         return toResponse(saved);
     }
+public AdminUserResponse updateUser(Long userId, AdminUserUpdateRequest request, String auteur) {
+        AdminUser user = findUserOrThrow(userId);
 
+        user.setNomComplet(request.nomComplet());
+        user.setRole(AdminUser.Role.valueOf(request.role()));
+        user.setSitesAutorises(request.sitesAutorises() != null ? request.sitesAutorises() : java.util.Set.of());
+
+        AdminUser saved = adminUserRepository.save(user);
+        auditService.record(auteur, "Modification utilisateur Backoffice",
+                "login=" + saved.getLogin() + " nom=" + saved.getNomComplet());
+
+        return toResponse(saved);
+    }
     public List<AdminUserResponse> listUsers() {
         return adminUserRepository.findAll().stream()
                 .map(this::toResponse)

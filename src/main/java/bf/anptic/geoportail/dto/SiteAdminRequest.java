@@ -12,6 +12,7 @@ public record SiteAdminRequest(
         Double longitude,
         String contactDsiNom,
         String contactDsiTelephone,
+        String contactDsiEmail,
         Integer netxmsNodeId,
         Integer niveaux
 ) {}

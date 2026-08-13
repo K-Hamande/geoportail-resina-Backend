@@ -27,7 +27,9 @@ public class MapService {
                         s.site().getVille(),
                         s.site().getLatitude(),
                         s.site().getLongitude(),
-                        s.statutGlobal()
+                        s.statutGlobal(),
+                        s.anpticStatus(),
+                        s.lanStatus()
                 ))
                 .toList();
     }

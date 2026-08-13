@@ -2,6 +2,7 @@ package bf.anptic.geoportail.controller.backoffice;
 
 import bf.anptic.geoportail.dto.AdminUserCreateRequest;
 import bf.anptic.geoportail.dto.AdminUserResponse;
+import bf.anptic.geoportail.dto.AdminUserUpdateRequest;
 import bf.anptic.geoportail.dto.ResetPasswordRequest;
 import bf.anptic.geoportail.service.backoffice.AdminUserService;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -29,6 +30,14 @@ public class AdminUserController {
     @PostMapping
     public AdminUserResponse createUser(@RequestBody AdminUserCreateRequest request, Authentication authentication) {
         return adminUserService.createUser(request, authentication.getName());
+    }
+
+    // NOUVEAU : modification d'un compte existant (nom, role, sites autorises)
+    @PutMapping("/{userId}")
+    public AdminUserResponse updateUser(@PathVariable Long userId,
+                                         @RequestBody AdminUserUpdateRequest request,
+                                         Authentication authentication) {
+        return adminUserService.updateUser(userId, request, authentication.getName());
     }
 
     @PostMapping("/{userId}/reset-password")
