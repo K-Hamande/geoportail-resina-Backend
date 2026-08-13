@@ -22,6 +22,14 @@ public record LanStatusDto(
             NodeStatus status,
             int actifs,
             int total,
-            String detail
+            String detail,
+            List<EquipmentDetailDto> equipements   // detail deplie cote frontend
+    ) {}
+
+    public record EquipmentDetailDto(
+            Long id,
+            String libelleAffiche,
+            String type,
+            NodeStatus status
     ) {}
 }

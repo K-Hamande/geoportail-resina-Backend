@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import javax.sql.DataSource;
 
@@ -46,5 +47,13 @@ public class NetxmsDataSourceConfig {
     @Bean(name = "netxmsJdbcTemplate")
     public JdbcTemplate netxmsJdbcTemplate(@Qualifier("netxmsDataSource") DataSource netxmsDataSource) {
         return new JdbcTemplate(netxmsDataSource);
+    }
+
+    // Variante "parametres nommes", pratique pour les requetes avec une
+    // clause IN (:ids) alimentee par une liste Java de taille variable
+    // (utilisee par LanStatusService pour recuperer les statuts par lots).
+    @Bean(name = "netxmsNamedJdbcTemplate")
+    public NamedParameterJdbcTemplate netxmsNamedJdbcTemplate(@Qualifier("netxmsDataSource") DataSource netxmsDataSource) {
+        return new NamedParameterJdbcTemplate(netxmsDataSource);
     }
 }

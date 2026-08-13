@@ -1,6 +1,7 @@
 package bf.anptic.geoportail.controller;
 
 import bf.anptic.geoportail.dto.AnpticStatusDto;
+import bf.anptic.geoportail.dto.IncidentDto;
 import bf.anptic.geoportail.dto.LanStatusDto;
 import bf.anptic.geoportail.dto.MapSiteDto;
 import bf.anptic.geoportail.dto.RegisterTokenRequest;
@@ -8,6 +9,7 @@ import bf.anptic.geoportail.dto.SiteNetworkDto;
 import bf.anptic.geoportail.dto.SiteSummaryDto;
 import bf.anptic.geoportail.repository.SiteRepository;
 import bf.anptic.geoportail.service.AnpticStatusService;
+import bf.anptic.geoportail.service.IncidentService;
 import bf.anptic.geoportail.service.LanStatusService;
 import bf.anptic.geoportail.service.MapService;
 import bf.anptic.geoportail.service.NotificationService;
@@ -26,19 +28,22 @@ public class SiteController {
     private final NotificationService notificationService;
     private final MapService mapService;
     private final SiteNetworkService siteNetworkService;
+    private final IncidentService incidentService;
 
     public SiteController(SiteRepository siteRepository,
                            AnpticStatusService anpticStatusService,
                            LanStatusService lanStatusService,
                            NotificationService notificationService,
                            MapService mapService,
-                           SiteNetworkService siteNetworkService) {
+                           SiteNetworkService siteNetworkService,
+                           IncidentService incidentService) {
         this.siteRepository = siteRepository;
         this.anpticStatusService = anpticStatusService;
         this.lanStatusService = lanStatusService;
         this.notificationService = notificationService;
         this.mapService = mapService;
         this.siteNetworkService = siteNetworkService;
+        this.incidentService = incidentService;
     }
 
     @GetMapping("/sites")
@@ -58,8 +63,6 @@ public class SiteController {
         return lanStatusService.getLanStatus(siteId);
     }
 
-    // NOUVEAU : equipements + debit + disponibilite en temps reel, lus directement
-    // depuis netxmsdb (geo_equipement / geo_disponibilite), filtres par site.
     @GetMapping("/site/{id}/reseau")
     public SiteNetworkDto getSiteNetwork(@PathVariable("id") String siteId) {
         return siteNetworkService.getSiteNetwork(siteId);
@@ -71,9 +74,15 @@ public class SiteController {
         notificationService.registerToken(siteId, request);
     }
 
-    // NOUVEAU : vue "Carte" (Amendement 1, Annexe A.2)
     @GetMapping("/sites/map")
     public List<MapSiteDto> listSitesForMap() {
         return mapService.listSitesForMap();
+    }
+
+    // NOUVEAU : problemes actuellement actifs (ANPTIC et/ou LAN), pour la
+    // page Alertes. Voir IncidentDto pour les limites sur les dates.
+    @GetMapping("/incidents")
+    public List<IncidentDto> listIncidents() {
+        return incidentService.listIncidents();
     }
 }

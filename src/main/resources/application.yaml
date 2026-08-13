@@ -9,3 +9,7 @@ spring:
 
 resina:
   message: "Configuration de base (aucun profil specifique)"
+  netxms-sync:
+    enabled: true
+    sites-cron: "0 0 2 * * *"
+    equipments-cron: "0 15 2 * * *"

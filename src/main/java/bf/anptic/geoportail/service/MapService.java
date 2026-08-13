@@ -1,48 +1,34 @@
 package bf.anptic.geoportail.service;
 
 import bf.anptic.geoportail.dto.MapSiteDto;
-import bf.anptic.geoportail.model.Site;
-import bf.anptic.geoportail.model.enums.NodeStatus;
-import bf.anptic.geoportail.repository.SiteRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 // Combine le statut ANPTIC et le statut LAN de chaque site actif pour
 // produire le statut global affiche sur la carte (Amendement 1, A.2).
+// S'appuie sur SiteStatusSnapshotService, qui calcule tout en 4 requetes
+// SQL au total (voir ce service pour le detail) - plutot que d'interroger
+// netxmsdb site par site, ce qui serait beaucoup trop lent sur 1600+ sites.
 @Service
 public class MapService {
 
-    private final SiteRepository siteRepository;
-    private final AnpticStatusService anpticStatusService;
-    private final LanStatusService lanStatusService;
+    private final SiteStatusSnapshotService snapshotService;
 
-    public MapService(SiteRepository siteRepository,
-                       AnpticStatusService anpticStatusService,
-                       LanStatusService lanStatusService) {
-        this.siteRepository = siteRepository;
-        this.anpticStatusService = anpticStatusService;
-        this.lanStatusService = lanStatusService;
+    public MapService(SiteStatusSnapshotService snapshotService) {
+        this.snapshotService = snapshotService;
     }
 
     public List<MapSiteDto> listSitesForMap() {
-        return siteRepository.findByActifTrue().stream()
-                .map(this::toMapSiteDto)
+        return snapshotService.computeAll().stream()
+                .map(s -> new MapSiteDto(
+                        s.site().getSiteId(),
+                        s.site().getNom(),
+                        s.site().getVille(),
+                        s.site().getLatitude(),
+                        s.site().getLongitude(),
+                        s.statutGlobal()
+                ))
                 .toList();
-    }
-
-    private MapSiteDto toMapSiteDto(Site site) {
-        NodeStatus anpticStatus = anpticStatusService.getAnpticStatus(site.getSiteId()).status();
-        NodeStatus lanStatus = lanStatusService.getLanStatus(site.getSiteId()).globalStatus();
-        NodeStatus statutGlobal = NodeStatus.worstOf(anpticStatus, lanStatus);
-
-        return new MapSiteDto(
-                site.getSiteId(),
-                site.getNom(),
-                site.getVille(),
-                site.getLatitude(),
-                site.getLongitude(),
-                statutGlobal
-        );
     }
 }
