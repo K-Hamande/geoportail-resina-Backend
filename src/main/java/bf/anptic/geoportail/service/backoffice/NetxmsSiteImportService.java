@@ -89,6 +89,7 @@ public class NetxmsSiteImportService {
             String structure = rs.getString("structure");
             String ministere = rs.getString("ministere");
             site.setInfoAuSurvol(buildInfoAuSurvol(structure, ministere));
+            site.setMinistere(ministere);
 
             return site;
         });
@@ -108,6 +109,7 @@ public class NetxmsSiteImportService {
                 site.setLongitude(source.getLongitude());
                 site.setNetxmsNodeId(source.getNetxmsNodeId());
                 site.setInfoAuSurvol(source.getInfoAuSurvol());
+                site.setMinistere(source.getMinistere());
                 // volontairement PAS touche : batiment, niveaux, contactDsiNom,
                 // contactDsiTelephone, actif -> geres a la main dans le backoffice
                 siteRepository.save(site);

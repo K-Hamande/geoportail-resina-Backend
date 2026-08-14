@@ -18,15 +18,10 @@ import java.util.List;
 // Lit le statut de la liaison ANPTIC (WAN) d'un site directement depuis
 // netxmsdb : equipement "Routeur" du site (geo_equipement), latence
 // (items/raw_dci_values) et disponibilite sur 30 jours (nodes +
-// object_properties + downtime_log). Remplace l'ancienne version basee
-// sur le mock NetXmsClient.
+// object_properties + downtime_log).
 @Service
 public class AnpticStatusService {
 
-    // Parmi les equipements du site, celui de type "Routeur" represente
-    // le point d'entree WAN (la "liaison ANPTIC"). S'il n'y en a pas
-    // (donnee manquante/mal categorisee), on retombe sur le premier
-    // equipement du site plutot que de ne rien afficher.
     private static final String SELECT_ROUTEUR = """
             SELECT object_id, status, technologie, traffic_entrant, traffic_sortant
             FROM public.geo_equipement
@@ -51,8 +46,6 @@ public class AnpticStatusService {
             LIMIT 1
             """;
 
-    // Meme logique de calcul que la vue public.geo_disponibilite, mais sur
-    // une fenetre glissante de 30 jours plutot que "depuis minuit aujourd'hui".
     private static final String SELECT_DISPONIBILITE_30J = """
             SELECT n.down_since,
                    round(COALESCE(
@@ -110,7 +103,22 @@ public class AnpticStatusService {
                     "Contactez l'ANPTIC pour verifier le rattachement de ce site");
         }
 
-        NodeStatus status = NodeStatus.fromNetXmsSeverityCode(equipement.status());
+        Double debitMontant = parseNombre(equipement.trafficSortant());
+        Double debitDescendant = parseNombre(equipement.trafficEntrant());
+
+        // Choix produit (validé) : si du trafic reel est mesure sur cet
+        // equipement, on considere la liaison comme disponible et on
+        // affiche le debit - meme si le statut de supervision NetXMS
+        // brut n'est pas "Normal" (ex: equipement marque "Non gere" ou
+        // "Critique" alors que des donnees continuent de transiter,
+        // frequent quand la supervision active n'est pas configuree
+        // mais que le lien physique fonctionne). Sans cet assouplissement,
+        // la quasi-totalite des sites du reseau actuel n'afficherait
+        // jamais de debit, le statut NetXMS "Normal" (0) etant tres rare
+        // dans ce jeu de donnees.
+        boolean trafficReel = (debitMontant != null && debitMontant > 0) || (debitDescendant != null && debitDescendant > 0);
+        NodeStatus statutCalcule = NodeStatus.fromNetXmsSeverityCode(equipement.status());
+        NodeStatus status = trafficReel ? NodeStatus.OK : statutCalcule;
         boolean disponible = status == NodeStatus.OK;
 
         Double latenceMs = netxmsJdbcTemplate.query(SELECT_LATENCE,
@@ -133,10 +141,10 @@ public class AnpticStatusService {
                     status,
                     true,
                     "La connexion ANPTIC est disponible",
-                    parseNombre(equipement.trafficSortant()),   // montant = ce que le site envoie
-                    parseNombre(equipement.trafficEntrant()),   // descendant = ce que le site recoit
+                    debitMontant,
+                    debitDescendant,
                     equipement.technologie(),
-                    null,   // qualiteSignal : pas de source dans netxmsdb pour l'instant
+                    null,
                     latenceMs,
                     dispo.pourcentage(),
                     null,
@@ -163,8 +171,6 @@ public class AnpticStatusService {
         }
     }
 
-    // Extrait le nombre en tete d'un texte du type "86 Mb/s" -> 86.0.
-    // Renvoie null si le texte est vide/non parseable (ex: valeur absente).
     private static Double parseNombre(String texte) {
         if (texte == null || texte.isBlank()) {
             return null;
