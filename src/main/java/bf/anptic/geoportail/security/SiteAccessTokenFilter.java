@@ -1,6 +1,8 @@
 package bf.anptic.geoportail.security;
 
 import bf.anptic.geoportail.config.ResinaProperties;
+import bf.anptic.geoportail.model.MinistryAccessToken;
+import bf.anptic.geoportail.repository.MinistryAccessTokenRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,17 +11,18 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Optional;
 
-// OncePerRequestFilter garantit que ce filtre s'execute une seule fois
-// par requete (utile car certains mecanismes internes de Servlet peuvent
-// sinon redeclencher un filtre plusieurs fois).
 @Component
 public class SiteAccessTokenFilter extends OncePerRequestFilter {
 
     private final ResinaProperties properties;
+    private final MinistryAccessTokenRepository ministryAccessTokenRepository;
 
-    public SiteAccessTokenFilter(ResinaProperties properties) {
+    public SiteAccessTokenFilter(ResinaProperties properties,
+                                  MinistryAccessTokenRepository ministryAccessTokenRepository) {
         this.properties = properties;
+        this.ministryAccessTokenRepository = ministryAccessTokenRepository;
     }
 
     @Override
@@ -29,24 +32,35 @@ public class SiteAccessTokenFilter extends OncePerRequestFilter {
 
         String uri = request.getRequestURI();
 
-        // On ne protege que les endpoints decideur /api/v1/**
-        // (le mock NetXMS et le reste ne sont pas concernes ici)
         if (!uri.startsWith("/api/v1")) {
-            chain.doFilter(request, response);   // laisse passer, sans verification
+            chain.doFilter(request, response);
             return;
         }
 
         String provided = request.getHeader("X-Resina-Site-Token");
-        String expected = properties.getAccessToken();
+        String jetonMaitre = properties.getAccessToken();
 
-        if (expected != null && expected.equals(provided)) {
-            chain.doFilter(request, response);   // token correct : on continue vers le controleur
-            return;
+        try {
+            if (jetonMaitre != null && jetonMaitre.equals(provided)) {
+                AccessScopeHolder.setMinistere(null);
+                chain.doFilter(request, response);
+                return;
+            }
+
+            if (provided != null) {
+                Optional<MinistryAccessToken> jeton = ministryAccessTokenRepository.findByTokenAndActifTrue(provided);
+                if (jeton.isPresent()) {
+                    AccessScopeHolder.setMinistere(jeton.get().getMinistere());
+                    chain.doFilter(request, response);
+                    return;
+                }
+            }
+
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"message\":\"Accès refusé. Token manquant ou invalide.\"}");
+        } finally {
+            AccessScopeHolder.clear();
         }
-
-        // Token absent ou incorrect : on coupe court, sans jamais atteindre le controleur
-        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-        response.setContentType("application/json;charset=UTF-8");
-        response.getWriter().write("{\"message\":\"Accès refusé. Token manquant ou invalide.\"}");
     }
 }

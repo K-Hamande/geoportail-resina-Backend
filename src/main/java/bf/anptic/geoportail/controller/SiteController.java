@@ -7,16 +7,22 @@ import bf.anptic.geoportail.dto.MapSiteDto;
 import bf.anptic.geoportail.dto.RegisterTokenRequest;
 import bf.anptic.geoportail.dto.SiteNetworkDto;
 import bf.anptic.geoportail.dto.SiteSummaryDto;
+import bf.anptic.geoportail.model.Site;
 import bf.anptic.geoportail.repository.SiteRepository;
+import bf.anptic.geoportail.security.AccessScopeHolder;
 import bf.anptic.geoportail.service.AnpticStatusService;
 import bf.anptic.geoportail.service.IncidentService;
 import bf.anptic.geoportail.service.LanStatusService;
 import bf.anptic.geoportail.service.MapService;
 import bf.anptic.geoportail.service.NotificationService;
 import bf.anptic.geoportail.service.SiteNetworkService;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -48,41 +54,75 @@ public class SiteController {
 
     @GetMapping("/sites")
     public List<SiteSummaryDto> listSites() {
-        return siteRepository.findByActifTrue().stream()
+        String ministere = AccessScopeHolder.getMinistere();
+        List<Site> sites = ministere == null
+                ? siteRepository.findByActifTrue()
+                : siteRepository.findByActifTrueAndMinistere(ministere);
+
+        return sites.stream()
                 .map(site -> new SiteSummaryDto(site.getSiteId(), site.getNom(), site.getVille()))
                 .toList();
     }
 
     @GetMapping("/site/{id}/anptic")
     public AnpticStatusDto getAnpticStatus(@PathVariable("id") String siteId) {
+        verifierAccesSite(siteId);
         return anpticStatusService.getAnpticStatus(siteId);
     }
 
     @GetMapping("/site/{id}/lan")
     public LanStatusDto getLanStatus(@PathVariable("id") String siteId) {
+        verifierAccesSite(siteId);
         return lanStatusService.getLanStatus(siteId);
     }
 
     @GetMapping("/site/{id}/reseau")
     public SiteNetworkDto getSiteNetwork(@PathVariable("id") String siteId) {
+        verifierAccesSite(siteId);
         return siteNetworkService.getSiteNetwork(siteId);
     }
 
     @PostMapping("/site/{id}/notifications/register")
     public void registerNotificationToken(@PathVariable("id") String siteId,
                                            @RequestBody RegisterTokenRequest request) {
+        verifierAccesSite(siteId);
         notificationService.registerToken(siteId, request);
     }
 
     @GetMapping("/sites/map")
     public List<MapSiteDto> listSitesForMap() {
-        return mapService.listSitesForMap();
+        List<MapSiteDto> tousLesSites = mapService.listSitesForMap();
+        return filtrerParMinistere(tousLesSites, MapSiteDto::siteId);
     }
 
-    // NOUVEAU : problemes actuellement actifs (ANPTIC et/ou LAN), pour la
-    // page Alertes. Voir IncidentDto pour les limites sur les dates.
     @GetMapping("/incidents")
     public List<IncidentDto> listIncidents() {
-        return incidentService.listIncidents();
+        List<IncidentDto> tousLesIncidents = incidentService.listIncidents();
+        return filtrerParMinistere(tousLesIncidents, IncidentDto::siteId);
+    }
+
+    private void verifierAccesSite(String siteId) {
+        String ministere = AccessScopeHolder.getMinistere();
+        if (ministere == null) {
+            return;
+        }
+        Site site = siteRepository.findById(siteId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Site introuvable : " + siteId));
+        if (!ministere.equals(site.getMinistere())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Ce site n'appartient pas à votre ministère.");
+        }
+    }
+
+    private <T> List<T> filtrerParMinistere(List<T> items, java.util.function.Function<T, String> siteIdExtractor) {
+        String ministere = AccessScopeHolder.getMinistere();
+        if (ministere == null) {
+            return items;
+        }
+        Set<String> sitesAutorises = siteRepository.findByActifTrueAndMinistere(ministere).stream()
+                .map(Site::getSiteId)
+                .collect(Collectors.toSet());
+        return items.stream()
+                .filter(item -> sitesAutorises.contains(siteIdExtractor.apply(item)))
+                .toList();
     }
 }
