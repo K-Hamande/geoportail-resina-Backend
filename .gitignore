@@ -31,3 +31,7 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Fichiers de configuration contenant des secrets
+src/main/resources/application-dev.yml
+src/main/resources/application-prod.yml
