@@ -6,6 +6,12 @@ spring:
     name: geoportail-resina-backend
   profiles:
     active: dev
+  flyway:
+    enabled: true
+    schemas: geoportail_resina
+    default-schema: geoportail_resina
+    baseline-on-migrate: true
+    baseline-version: 0
 
 resina:
   message: "Configuration de base (aucun profil specifique)"
