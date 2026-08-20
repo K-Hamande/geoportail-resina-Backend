@@ -12,25 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 
-// Importe/synchronise le catalogue des sites RESINA depuis netxmsdb
-// (donnebase.siteadministratif filtree sur connectionresina = 'Oui')
-// vers la table applicative geoportail_resina.sites.
-//
-// Comportement upsert :
-//  - site absent  -> creation, actif = true par defaut
-//  - site present -> mise a jour des SEULS champs dont netxmsdb est la source
-//                    de verite (nom, ville, region, coordonnees, ministere/structure).
-//                    Les champs geres a la main dans le backoffice (batiment, niveaux,
-//                    contacts DSI, actif/inactif) ne sont JAMAIS ecrases par un reimport.
 @Service
 public class NetxmsSiteImportService {
 
     private static final Logger log = LoggerFactory.getLogger(NetxmsSiteImportService.class);
 
-    // Un site RESINA est identifie par connectionresina = 'Oui' dans
-    // donnebase.siteadministratif. La region est obtenue par la chaine de
-    // jointures ville -> commune -> province -> region (meme logique que
-    // celle utilisee par la vue public.geo_equipement).
     private static final String SELECT_SITES_RESINA = """
             SELECT sa.id_siteadministratif AS id,
                    sa.nomsiteadministratif AS nom,
@@ -39,6 +25,7 @@ public class NetxmsSiteImportService {
                    sa.structure            AS structure,
                    sa."Minist\u00E8re"     AS ministere,
                    vi.nomville             AS nomville,
+                   po.nomprovince          AS nomprovince,
                    re.nomregion            AS nomregion
             FROM donnebase.siteadministratif sa
             LEFT JOIN donnebase.ville vi ON sa.id_ville = vi.id_ville
@@ -67,29 +54,22 @@ public class NetxmsSiteImportService {
     @Transactional
     public ImportResult importSitesResina() {
         List<Site> sitesSource = netxmsJdbcTemplate.query(SELECT_SITES_RESINA, (rs, rowNum) -> {
-            int idSiteAdministratif = rs.getInt("id");
-
+            int id = rs.getInt("id");
             Site site = new Site();
-            site.setSiteId(String.valueOf(idSiteAdministratif));
+            site.setSiteId(String.valueOf(id));
             site.setNom(rs.getString("nom"));
             site.setVille(rs.getString("nomville"));
+            site.setProvince(rs.getString("nomprovince"));
             site.setRegionAdministrative(rs.getString("nomregion"));
+            site.setStructure(rs.getString("structure"));
+            site.setMinistere(rs.getString("ministere"));
+            site.setInfoAuSurvol(buildInfoAuSurvol(rs.getString("structure"), rs.getString("ministere")));
+            site.setNetxmsNodeId(id);
 
             double lat = rs.getDouble("latitude");
-            if (!rs.wasNull()) {
-                site.setLatitude(lat);
-            }
+            if (!rs.wasNull()) site.setLatitude(lat);
             double lon = rs.getDouble("longitude");
-            if (!rs.wasNull()) {
-                site.setLongitude(lon);
-            }
-
-            site.setNetxmsNodeId(idSiteAdministratif);
-
-            String structure = rs.getString("structure");
-            String ministere = rs.getString("ministere");
-            site.setInfoAuSurvol(buildInfoAuSurvol(structure, ministere));
-            site.setMinistere(ministere);
+            if (!rs.wasNull()) site.setLongitude(lon);
 
             return site;
         });
@@ -99,19 +79,18 @@ public class NetxmsSiteImportService {
 
         for (Site source : sitesSource) {
             Optional<Site> existant = siteRepository.findById(source.getSiteId());
-
             if (existant.isPresent()) {
                 Site site = existant.get();
                 site.setNom(source.getNom());
                 site.setVille(source.getVille());
+                site.setProvince(source.getProvince());
                 site.setRegionAdministrative(source.getRegionAdministrative());
+                site.setStructure(source.getStructure());
+                site.setMinistere(source.getMinistere());
+                site.setInfoAuSurvol(source.getInfoAuSurvol());
+                site.setNetxmsNodeId(source.getNetxmsNodeId());
                 site.setLatitude(source.getLatitude());
                 site.setLongitude(source.getLongitude());
-                site.setNetxmsNodeId(source.getNetxmsNodeId());
-                site.setInfoAuSurvol(source.getInfoAuSurvol());
-                site.setMinistere(source.getMinistere());
-                // volontairement PAS touche : batiment, niveaux, contactDsiNom,
-                // contactDsiTelephone, actif -> geres a la main dans le backoffice
                 siteRepository.save(site);
                 result.misAJour++;
             } else {
@@ -121,25 +100,17 @@ public class NetxmsSiteImportService {
             }
         }
 
-        log.info("Import sites RESINA termine : {} crees, {} mis a jour, {} au total",
+        log.info("Import sites RESINA : {} crees, {} mis a jour, {} au total",
                 result.crees, result.misAJour, result.total);
-
         return result;
     }
 
     private static String buildInfoAuSurvol(String structure, String ministere) {
         boolean hasStructure = structure != null && !structure.isBlank();
         boolean hasMinistere = ministere != null && !ministere.isBlank();
-
-        if (hasStructure && hasMinistere) {
-            return structure + " - " + ministere;
-        }
-        if (hasStructure) {
-            return structure;
-        }
-        if (hasMinistere) {
-            return ministere;
-        }
+        if (hasStructure && hasMinistere) return structure + " - " + ministere;
+        if (hasStructure) return structure;
+        if (hasMinistere) return ministere;
         return null;
     }
 }

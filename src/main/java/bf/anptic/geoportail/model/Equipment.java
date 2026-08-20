@@ -36,10 +36,17 @@ public class Equipment {
     private Integer netxmsObjectId;
 
     public enum EquipmentType {
-        BORNE_WIFI,
-        COMMUTATEUR
+        BORNE_WIFI,     // Point d'acces Wi-Fi
+        COMMUTATEUR,    // Switch
+        ROUTEUR,        // Router - liaison WAN
+        PTP,            // Point-to-Point (faisceau hertzien)
+        PMP,            // Point-to-Multipoint
+        CPE,            // Customer Premises Equipment (terminaison operateur)
+        ONDULEUR,       // Alimentation electrique
+        SERVEUR,        // Serveur physique
+        PYLONE,         // Infrastructure de support (pylone/tour)
+        AUTRE           // Type non reconnu - fallback
     }
-
     // ---- Getters et setters ----
 
     public Long getId() {
