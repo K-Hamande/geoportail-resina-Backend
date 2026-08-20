@@ -57,7 +57,8 @@ public class AdminSiteService {
         return sites.stream()
                 .map(site -> new CartographyItemDto(
                         site.getSiteId(), site.getNom(), site.getLatitude(), site.getLongitude(),
-                        site.getInfoAuSurvol(), site.getLatitude() != null && site.getLongitude() != null))
+                        site.getInfoAuSurvol(), site.getLatitude() != null && site.getLongitude() != null,
+                        site.getVille(), site.getProvince(), site.getRegionAdministrative(), site.getMinistere()))
                 .toList();
     }
 
