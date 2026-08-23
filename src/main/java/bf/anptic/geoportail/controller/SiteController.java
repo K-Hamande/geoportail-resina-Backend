@@ -19,6 +19,7 @@ import bf.anptic.geoportail.service.SiteNetworkService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import bf.anptic.geoportail.dto.SiteStatutSimpleDto;
 
 import java.util.List;
 import java.util.Set;
@@ -95,6 +96,28 @@ public class SiteController {
         return filtrerParMinistere(tousLesSites, MapSiteDto::siteId);
     }
 
+        // Vue simplifiee pour les utilisateurs lambda : statut global
+    // uniquement (OK/KO), sans details techniques. Le statut WARN et
+    // UNKNOWN sont ramenes a OK et KO respectivement pour rester
+    // comprehensibles par un non-technicien.
+    @GetMapping("/sites/statut-simple")
+    public List<SiteStatutSimpleDto> listSitesStatutSimple() {
+        return mapService.listSitesForMap().stream()
+                .map(s -> new SiteStatutSimpleDto(
+                        s.siteId(),
+                        s.nom(),
+                        s.ville(),
+                        null,
+                        null,
+                        s.latitude(),
+                        s.longitude(),
+                        // WARN → KO (probleme), UNKNOWN → KO (pas de signal = pas bon)
+                        // seul OK reste OK
+                        "OK".equals(s.statutGlobal()) ? "OK" : "KO"
+                ))
+                .toList();
+    }
+
     @GetMapping("/incidents")
     public List<IncidentDto> listIncidents() {
         List<IncidentDto> tousLesIncidents = incidentService.listIncidents();
@@ -102,6 +125,14 @@ public class SiteController {
     }
 
     private void verifierAccesSite(String siteId) {
+        // Un profil LAMBDA n'a droit qu'a la consultation du statut global
+        // (voir /sites/statut-simple) : aucun endpoint detaille (debit,
+        // latence, disponibilite...) ne doit lui etre accessible, meme
+        // avec un JWT valide.
+        if (AccessScopeHolder.estLambda()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Ce profil n'a pas accès aux données détaillées.");
+        }
         String ministere = AccessScopeHolder.getMinistere();
         if (ministere == null) {
             return;
@@ -125,4 +156,5 @@ public class SiteController {
                 .filter(item -> sitesAutorises.contains(siteIdExtractor.apply(item)))
                 .toList();
     }
+    
 }

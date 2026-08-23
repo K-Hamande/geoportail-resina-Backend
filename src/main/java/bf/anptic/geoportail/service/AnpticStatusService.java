@@ -46,6 +46,30 @@ public class AnpticStatusService {
             LIMIT 1
             """;
 
+    // Meme principe que la latence : DCI standard NetXMS "ICMP ping:
+    // packet loss", present sur la grande majorite des equipements
+    // supervises (verifie sur netxmsdb reelle : ~1410 equipements).
+    private static final String SELECT_PERTE_PAQUETS = """
+            SELECT rdci.transformed_value
+            FROM public.items dct
+            JOIN public.raw_dci_values rdci ON dct.item_id = rdci.item_id
+            WHERE dct.node_id = ? AND dct.description ILIKE '%packet loss%'
+            LIMIT 1
+            """;
+
+    // Cibles KPI officielles (document metier NOC "Resume elements
+    // pertinents pour l'exploitation quotidienne des agents NOC", KPI
+    // reseau) : disponibilite des liens >= 99%, latence moyenne <= 100ms,
+    // taux de perte de paquets <= 2%. L'utilisation de bande passante
+    // (<=80%) n'est volontairement pas incluse : la vitesse nominale
+    // disponible dans public.interfaces (colonne speed) reflete la
+    // vitesse negociee du port Ethernet, pas la capacite reelle des
+    // liens radio/satellite, et ne permet pas d'identifier de facon
+    // fiable quelle interface correspond au lien ANPTIC d'un site donne.
+    private static final double CIBLE_DISPONIBILITE_PCT = 99.0;
+    private static final double CIBLE_LATENCE_MS = 100.0;
+    private static final double CIBLE_PERTE_PAQUETS_PCT = 2.0;
+
     private static final String SELECT_DISPONIBILITE_30J = """
             SELECT n.down_since,
                    round(COALESCE(
@@ -87,7 +111,7 @@ public class AnpticStatusService {
 
         if (site.getNetxmsNodeId() == null) {
             return new AnpticStatusDto(siteId, NodeStatus.UNKNOWN, false,
-                    "Ce site n'est pas encore relie a NetXMS", null, null, null, null, null, null, null,
+                    "Ce site n'est pas encore relie a NetXMS", null, null, null, null, null, null, null, null,
                     "Contactez l'ANPTIC pour finaliser le rattachement de ce site");
         }
         int siteAdminId = site.getNetxmsNodeId();
@@ -99,7 +123,7 @@ public class AnpticStatusService {
 
         if (equipement == null) {
             return new AnpticStatusDto(siteId, NodeStatus.UNKNOWN, false,
-                    "Aucun equipement reseau recense pour ce site", null, null, null, null, null, null, null,
+                    "Aucun equipement reseau recense pour ce site", null, null, null, null, null, null, null, null,
                     "Contactez l'ANPTIC pour verifier le rattachement de ce site");
         }
 
@@ -127,6 +151,12 @@ public class AnpticStatusService {
                 .map(AnpticStatusService::parseNombre)
                 .orElse(null);
 
+        Double perteDePaquetsPct = netxmsJdbcTemplate.query(SELECT_PERTE_PAQUETS,
+                        (rs, rowNum) -> rs.getString(1), equipement.objectId())
+                .stream().findFirst()
+                .map(AnpticStatusService::parseNombre)
+                .orElse(null);
+
         DisponibiliteRow dispo = netxmsJdbcTemplate.query(SELECT_DISPONIBILITE_30J,
                         (rs, rowNum) -> {
                             long downSince = rs.getLong("down_since");
@@ -136,6 +166,7 @@ public class AnpticStatusService {
                 .stream().findFirst().orElse(new DisponibiliteRow(0L, null));
 
         if (disponible) {
+            QualiteReseau qualite = calculerQualite(dispo.pourcentage(), latenceMs, perteDePaquetsPct);
             return new AnpticStatusDto(
                     siteId,
                     status,
@@ -144,7 +175,8 @@ public class AnpticStatusService {
                     debitMontant,
                     debitDescendant,
                     equipement.technologie(),
-                    null,
+                    qualite != null ? qualite.label() : null,
+                    qualite != null ? qualite.niveau() : null,
                     latenceMs,
                     dispo.pourcentage(),
                     null,
@@ -164,12 +196,58 @@ public class AnpticStatusService {
                     equipement.technologie(),
                     null,
                     null,
+                    null,
                     dispo.pourcentage(),
                     indisponibleDepuis,
                     "Veuillez contacter les services support de l'ANPTIC"
             );
         }
     }
+
+    // Score de qualite reseau, base sur les cibles KPI officielles du
+    // document metier NOC (voir constantes CIBLE_* ci-dessus). Chaque
+    // critere disponible contribue un score de 0 a 1 (1 = cible
+    // atteinte ou depassee, degradation lineaire jusqu'a 0 quand on est
+    // deux fois pire que la cible), combine en moyenne ponderee. Un
+    // critere absent (donnee non mesurable) est simplement exclu, sans
+    // penaliser le score - la ponderation restante est renormalisee.
+    // Renvoie null si aucun critere n'est disponible.
+    private static QualiteReseau calculerQualite(Double disponibilite30j, Double latenceMs, Double perteDePaquetsPct) {
+        double sommeScoresPonderes = 0.0;
+        double sommePoids = 0.0;
+
+        if (disponibilite30j != null) {
+            double score = Math.min(1.0, disponibilite30j / CIBLE_DISPONIBILITE_PCT);
+            sommeScoresPonderes += score * 0.40;
+            sommePoids += 0.40;
+        }
+        if (latenceMs != null) {
+            double score = latenceMs <= CIBLE_LATENCE_MS
+                    ? 1.0
+                    : Math.max(0.0, 1.0 - (latenceMs - CIBLE_LATENCE_MS) / CIBLE_LATENCE_MS);
+            sommeScoresPonderes += score * 0.30;
+            sommePoids += 0.30;
+        }
+        if (perteDePaquetsPct != null) {
+            double score = perteDePaquetsPct <= CIBLE_PERTE_PAQUETS_PCT
+                    ? 1.0
+                    : Math.max(0.0, 1.0 - (perteDePaquetsPct - CIBLE_PERTE_PAQUETS_PCT) / CIBLE_PERTE_PAQUETS_PCT);
+            sommeScoresPonderes += score * 0.30;
+            sommePoids += 0.30;
+        }
+
+        if (sommePoids == 0.0) {
+            return null;
+        }
+
+        double scoreFinal = sommeScoresPonderes / sommePoids;
+        if (scoreFinal >= 0.9) return new QualiteReseau("Excellente", "OK");
+        if (scoreFinal >= 0.7) return new QualiteReseau("Bonne", "OK");
+        if (scoreFinal >= 0.4) return new QualiteReseau("Dégradée", "WARN");
+        return new QualiteReseau("Mauvaise", "KO");
+    }
+
+    private record QualiteReseau(String label, String niveau) {}
 
     private static Double parseNombre(String texte) {
         if (texte == null || texte.isBlank()) {

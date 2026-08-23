@@ -4,11 +4,13 @@ import bf.anptic.geoportail.dto.CartographyItemDto;
 import bf.anptic.geoportail.dto.CartographyUpdateRequest;
 import bf.anptic.geoportail.dto.EquipmentResponse;
 import bf.anptic.geoportail.dto.EquipmentStatsDto;
+import bf.anptic.geoportail.dto.MapSiteDto;
 import bf.anptic.geoportail.dto.SiteAdminRequest;
 import bf.anptic.geoportail.dto.SiteAdminResponse;
 import bf.anptic.geoportail.model.Equipment;
 import bf.anptic.geoportail.repository.EquipmentRepository;
 import bf.anptic.geoportail.repository.SiteRepository;
+import bf.anptic.geoportail.service.MapService;
 import bf.anptic.geoportail.service.backoffice.AdminSiteService;
 import bf.anptic.geoportail.service.backoffice.EquipmentSyncService;
 import bf.anptic.geoportail.service.backoffice.NetxmsSiteImportService;
@@ -28,17 +30,20 @@ public class AdminSiteController {
     private final EquipmentSyncService equipmentSyncService;
     private final EquipmentRepository equipmentRepository;
     private final SiteRepository siteRepository;
+    private final MapService mapService;
 
     public AdminSiteController(AdminSiteService adminSiteService,
                                 NetxmsSiteImportService netxmsSiteImportService,
                                 EquipmentSyncService equipmentSyncService,
                                 EquipmentRepository equipmentRepository,
-                                SiteRepository siteRepository) {
+                                SiteRepository siteRepository,
+                                MapService mapService) {
         this.adminSiteService = adminSiteService;
         this.netxmsSiteImportService = netxmsSiteImportService;
         this.equipmentSyncService = equipmentSyncService;
         this.equipmentRepository = equipmentRepository;
         this.siteRepository = siteRepository;
+        this.mapService = mapService;
     }
 
     @PostMapping("/sites/import-netxms")
@@ -49,6 +54,14 @@ public class AdminSiteController {
     @GetMapping("/sites")
     public List<SiteAdminResponse> listAllSites(Authentication authentication) {
         return adminSiteService.listAllSites(authentication);
+    }
+
+    // Statuts globaux de tous les sites - utilise par le dashboard
+    // backoffice pour les KPI et le tableau des sites en anomalie.
+    // Accessible uniquement depuis le backoffice (Basic Auth).
+    @GetMapping("/sites/statuts")
+    public List<MapSiteDto> listSitesStatuts() {
+        return mapService.listSitesForMap();
     }
 
     @PostMapping("/sites")
@@ -70,7 +83,6 @@ public class AdminSiteController {
     public List<EquipmentResponse> listEquipments(@PathVariable String siteId, Authentication authentication) {
         return adminSiteService.listEquipments(siteId, authentication);
     }
-
 
     @PutMapping("/equipments/{equipmentId}/etage")
     public EquipmentResponse assignFloor(@PathVariable Long equipmentId,
@@ -95,8 +107,6 @@ public class AdminSiteController {
                                    Authentication authentication) {
         adminSiteService.updateCartography(siteId, request, authentication.getName(), authentication);
     }
-
-    // ---- Equipements : compteur, stats, filtres ----
 
     @GetMapping("/equipments/count")
     public Map<String, Long> countEquipments() {
@@ -139,14 +149,13 @@ public class AdminSiteController {
                 .distinct().sorted().toList();
 
         List<String> ministeres = siteRepository.findDistinctMinisteres();
-
         List<String> provinces = siteRepository.findDistinctProvinces(null);
         List<String> structures = siteRepository.findDistinctStructures(null);
 
-        return new EquipmentStatsDto(total, parType, regions, provinces, villes, ministeres, structures);    
+        return new EquipmentStatsDto(total, parType, regions, provinces, villes, ministeres, structures);
     }
 
-        @GetMapping("/equipments")
+    @GetMapping("/equipments")
     public List<EquipmentResponse> listEquipmentsFiltered(
             @RequestParam(required = false) String region,
             @RequestParam(required = false) String province,
@@ -180,8 +189,7 @@ public class AdminSiteController {
          ))
          .toList();
     }
-        // Endpoint pour les filtres en cascade (provinces d'une region,
-    // villes d'une province, structures d'un ministere)
+
     @GetMapping("/equipments/cascade")
     public List<String> cascade(
             @RequestParam String niveau,

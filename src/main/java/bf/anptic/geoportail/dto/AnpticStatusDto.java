@@ -19,6 +19,10 @@ public record AnpticStatusDto(
         Double debitDescendantMbps,
         String typeLiaison,
         String qualiteSignal,
+        // Niveau normalise ("OK"/"WARN"/"KO") associe a qualiteSignal, pour
+        // que le frontend puisse colorer le libelle sans avoir a re-parser
+        // le texte non technique (cf. AnpticStatusService.calculerQualite).
+        String qualiteNiveau,
         Double latenceMs,
         Double disponibilite30Jours,
         Instant indisponibleDepuis,
