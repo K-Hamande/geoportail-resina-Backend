@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS ministry_access_tokens (
 -- (annotation @Column(name="intervalle_actualisation_s") dans l'entite)
 CREATE TABLE IF NOT EXISTS site_supervision_settings (
     site_id                     VARCHAR(255) PRIMARY KEY REFERENCES sites(site_id),
-    intervalle_actualisations   INTEGER,
+    intervalle_actualisation_s   INTEGER,
     debit_minimal_mbps          DOUBLE PRECISION,
     latence_maximale_ms         DOUBLE PRECISION,
     notifications_actives       BOOLEAN,
