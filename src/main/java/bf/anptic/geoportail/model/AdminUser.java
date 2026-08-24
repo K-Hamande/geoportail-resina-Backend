@@ -7,7 +7,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-@Table(name = "admin_users")
+@Table(name = "admin_users", schema = "geoportail_resina")
 public class AdminUser {
 
     @Id

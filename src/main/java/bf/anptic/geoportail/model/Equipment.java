@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 // Represente un equipement LAN (borne Wi-Fi ou commutateur) rattache
 // a un etage d'un site (§3.2.6a du CDC).
 @Entity
-@Table(name = "equipments")
+@Table(name = "equipments", schema = "geoportail_resina")
 public class Equipment {
 
     @Id

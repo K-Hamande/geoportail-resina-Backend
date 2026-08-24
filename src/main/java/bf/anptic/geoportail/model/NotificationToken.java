@@ -8,7 +8,7 @@ import java.time.Instant;
 // (§3.2.6b : "enregistrement et suppression des tokens de notification
 // par site et par profil utilisateur").
 @Entity
-@Table(name = "notification_tokens")
+@Table(name = "notification_tokens", schema = "geoportail_resina")
 public class NotificationToken {
 
     @Id

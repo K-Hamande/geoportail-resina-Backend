@@ -7,7 +7,7 @@ import java.time.Instant;
 // Trace une action effectuee dans le Backoffice : qui, quoi, quand
 // (§3.2.6b du CDC : "tracabilite des modifications effectuees").
 @Entity
-@Table(name = "audit_log_entries")
+@Table(name = "audit_log_entries", schema = "geoportail_resina")
 public class AuditLogEntry {
 
     @Id
