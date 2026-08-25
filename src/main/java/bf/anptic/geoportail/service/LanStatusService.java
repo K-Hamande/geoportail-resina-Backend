@@ -44,6 +44,12 @@ public class LanStatusService {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Site introuvable : " + siteId));
 
+        // Le decideur doit voir TOUS les equipements du site selectionne
+        // (ANPTIC compris) pour pouvoir constater lui-meme lesquels sont
+        // connectes au reseau et lesquels ne le sont pas - pas seulement
+        // ceux du batiment. La table equipments contient desormais
+        // l'inventaire NetXMS complet (cf. EquipmentSyncService), donc
+        // aucun filtre sur "propriete" ici.
         List<Equipment> equipments = equipmentRepository.findBySite_SiteId(siteId);
         Map<Integer, Integer> statusByObjectId = fetchStatuses(equipments);
 

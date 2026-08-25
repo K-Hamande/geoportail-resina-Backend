@@ -13,27 +13,19 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
-// Synchronise le catalogue des equipements du BATIMENT depuis netxmsdb
-// (geo_equipement) vers la table applicative equipments.
-//
-// Filtre cle : propriete <> 'ANPTIC'. Verifie sur la base reelle
-// (25/08/26) que le type seul (ex: exclure les "Routeur") n'est pas le
-// bon critere : ANPTIC possede aussi des switches/CPE de demarcation
-// (932 constates hors routeurs), et inversement au moins un equipement
-// type "Routeur" appartient en realite a un ministere (cas
-// siteadmin_id 5266 "DGSI Ouagadougou", propriete = 'MEFP'). Sur 12
-// sites reels, les deux categories coexistent (ex: siteadmin_id 5077 :
-// 10 equipements ANPTIC + 1 hors ANPTIC) - preuve que la separation
-// par propriete, et non par type, est necessaire pour que "Reseau du
-// batiment" ne se melange jamais avec "Reseau ANPTIC" (cf. AnpticStatusService,
-// qui lui filtre desormais explicitement propriete = 'ANPTIC').
-//
+// Synchronise le catalogue COMPLET des equipements depuis netxmsdb
+// (geo_equipement) vers la table applicative equipments - ANPTIC et
+// batiment confondus, sans aucun filtre sur "propriete" : c'est ce qui
+// alimente l'inventaire complet de la page Backoffice "Equipements
+// reseau" (§3.2.6b) ET la liste complete vue par le decideur
+// (LanStatusService) sur un site donne. La colonne propriete est
+// conservee telle quelle sur chaque ligne pour un usage futur eventuel
+// (badge ANPTIC/ministere), mais aucune lecture ne filtre dessus
+// actuellement.
 // Les champs etageLabel et libelleAffiche ne sont JAMAIS ecrases par
 // une resynchronisation - ils sont proteges pour les assignations
 // manuelles.
@@ -42,10 +34,10 @@ public class EquipmentSyncService {
 
     private static final Logger log = LoggerFactory.getLogger(EquipmentSyncService.class);
 
+    // Aucun filtre "hors ANPTIC" ni "hors routeurs" : on importe TOUT.
     private static final String SELECT_EQUIPEMENTS = """
-            SELECT object_id, siteadmin_id, name, type
+            SELECT object_id, siteadmin_id, name, type, propriete
             FROM public.geo_equipement
-            WHERE propriete IS DISTINCT FROM 'ANPTIC'
             ORDER BY siteadmin_id
             """;
 
@@ -65,7 +57,6 @@ public class EquipmentSyncService {
         public int crees;
         public int misAJour;
         public int ignores;
-        public int supprimes;
         public int total;
     }
 
@@ -83,21 +74,14 @@ public class EquipmentSyncService {
                         rs.getInt("object_id"),
                         rs.getInt("siteadmin_id"),
                         rs.getString("name"),
-                        rs.getString("type")
+                        rs.getString("type"),
+                        rs.getString("propriete")
                 ));
 
         SyncResult result = new SyncResult();
         result.total = rows.size();
 
-        // Tous les object_id actuellement dans le perimetre "batiment"
-        // (hors ANPTIC) - sert ensuite a detecter ce qui doit etre
-        // supprime localement (equipement disparu de NetXMS, ou
-        // desormais exclu parce qu'il appartient a l'ANPTIC).
-        Set<Integer> objectIdsPresents = new HashSet<>();
-
         for (EquipementRow row : rows) {
-            objectIdsPresents.add(row.objectId());
-
             Site site = siteByNetxmsNodeId.get(row.siteadminId());
             if (site == null) {
                 result.ignores++;
@@ -111,6 +95,7 @@ public class EquipmentSyncService {
                 eq.setSite(site);
                 eq.setType(mapType(row.type()));
                 eq.setNomTechniqueNetxms(row.name());
+                eq.setPropriete(row.propriete());
                 equipmentRepository.save(eq);
                 result.misAJour++;
             } else {
@@ -119,6 +104,7 @@ public class EquipmentSyncService {
                 eq.setNetxmsObjectId(row.objectId());
                 eq.setType(mapType(row.type()));
                 eq.setNomTechniqueNetxms(row.name());
+                eq.setPropriete(row.propriete());
                 eq.setEtageLabel(null);
                 eq.setLibelleAffiche(null);
                 equipmentRepository.save(eq);
@@ -126,20 +112,8 @@ public class EquipmentSyncService {
             }
         }
 
-        // Nettoyage : supprime les equipements deja synchronises qui ne
-        // font plus partie du perimetre "batiment" actuel - typiquement
-        // les routeurs/equipements ANPTIC importes avant l'ajout du
-        // filtre propriete, ou un equipement retire de NetXMS entre
-        // deux synchros.
-        for (Equipment eq : equipmentRepository.findByNetxmsObjectIdIsNotNull()) {
-            if (!objectIdsPresents.contains(eq.getNetxmsObjectId())) {
-                equipmentRepository.delete(eq);
-                result.supprimes++;
-            }
-        }
-
-        log.info("Sync equipements termine : {} crees, {} mis a jour, {} supprimes, {} ignores, {} au total",
-                result.crees, result.misAJour, result.supprimes, result.ignores, result.total);
+        log.info("Sync equipements termine : {} crees, {} mis a jour, {} ignores, {} au total",
+                result.crees, result.misAJour, result.ignores, result.total);
 
         return result;
     }
@@ -165,5 +139,5 @@ public class EquipmentSyncService {
         return EquipmentType.AUTRE;
     }
 
-    private record EquipementRow(int objectId, int siteadminId, String name, String type) {}
+    private record EquipementRow(int objectId, int siteadminId, String name, String type, String propriete) {}
 }
