@@ -16,6 +16,14 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
     long countBySite_SiteId(String siteId);
     Optional<Equipment> findByNetxmsObjectId(Integer netxmsObjectId);
 
+    // Tous les equipements provenant de la synchronisation NetXMS (par
+    // opposition a un eventuel equipement cree manuellement, qui n'aurait
+    // pas de netxmsObjectId) - utilise par EquipmentSyncService pour
+    // detecter et supprimer ceux qui ne sont plus dans le perimetre
+    // synchronise (disparus de NetXMS, ou desormais exclus car
+    // appartenant a l'ANPTIC).
+    List<Equipment> findByNetxmsObjectIdIsNotNull();
+
     // Statistiques : nombre d'equipements par type (pour le graphe du backoffice)
     @Query("SELECT e.type, COUNT(e) FROM Equipment e GROUP BY e.type ORDER BY COUNT(e) DESC")
     List<Object[]> countByType();
