@@ -81,6 +81,19 @@ public AdminUserResponse updateUser(Long userId, AdminUserUpdateRequest request,
                 "login=" + user.getLogin());
     }
 
+    // Suppression definitive d'un compte Backoffice. On interdit qu'un
+    // admin se supprime lui-meme (comparaison sur le login, insensible a
+    // la casse) pour eviter de se retrouver bloque hors de l'appli.
+    public void deleteUser(Long userId, String auteur) {
+        AdminUser user = findUserOrThrow(userId);
+        if (user.getLogin() != null && user.getLogin().equalsIgnoreCase(auteur)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Vous ne pouvez pas supprimer votre propre compte.");
+        }
+        adminUserRepository.delete(user);
+        auditService.record(auteur, "Suppression utilisateur Backoffice", "login=" + user.getLogin());
+    }
+
     private AdminUser findUserOrThrow(Long userId) {
         return adminUserRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(

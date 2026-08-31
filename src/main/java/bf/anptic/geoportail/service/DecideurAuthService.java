@@ -111,6 +111,16 @@ public class DecideurAuthService {
                 "login=" + user.getLogin());
     }
 
+        // Suppression definitive d'un compte decideur (appelee par un admin
+    // Backoffice - le decideur lui-meme n'a pas acces a cet endpoint).
+    public void deleteUser(Long id, String auteur) {
+        DecideurUser user = decideurUserRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Utilisateur introuvable."));
+        decideurUserRepository.delete(user);
+        auditService.record(auteur, "Suppression compte décideur", "login=" + user.getLogin());
+    }
+
     private DecideurAuthDto.DecideurUserResponse toResponse(DecideurUser u) {
         return new DecideurAuthDto.DecideurUserResponse(
                 u.getId(), u.getLogin(), u.getNomComplet(),

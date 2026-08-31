@@ -56,4 +56,9 @@ public class AdminUserController {
     public void activate(@PathVariable Long userId, Authentication authentication) {
         adminUserService.setActive(userId, true, authentication.getName());
     }
+
+    @DeleteMapping("/{userId}")
+    public void deleteUser(@PathVariable Long userId, Authentication authentication) {
+        adminUserService.deleteUser(userId, authentication.getName());
+    }
 }
