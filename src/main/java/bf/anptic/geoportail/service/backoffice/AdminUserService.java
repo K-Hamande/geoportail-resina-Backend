@@ -2,6 +2,7 @@ package bf.anptic.geoportail.service.backoffice;
 
 import bf.anptic.geoportail.dto.AdminUserCreateRequest;
 import bf.anptic.geoportail.dto.AdminUserResponse;
+import bf.anptic.geoportail.dto.CurrentUserResponse;
 import bf.anptic.geoportail.model.AdminUser;
 import bf.anptic.geoportail.repository.AdminUserRepository;
 import bf.anptic.geoportail.service.AuditService;
@@ -92,6 +93,32 @@ public AdminUserResponse updateUser(Long userId, AdminUserUpdateRequest request,
         }
         adminUserRepository.delete(user);
         auditService.record(auteur, "Suppression utilisateur Backoffice", "login=" + user.getLogin());
+    }
+
+    // ---- Self-service "Mon profil" (accessible a tout role, pas seulement
+    // SUPER_ADMIN - voir MeController) ----
+
+    public CurrentUserResponse getCurrentUser(String login) {
+        AdminUser user = adminUserRepository.findByLoginAndActifTrue(login)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Utilisateur introuvable."));
+        return new CurrentUserResponse(user.getId(), user.getLogin(), user.getNomComplet(), user.getRole().name());
+    }
+
+    public void changeOwnPassword(String login, String motDePasseActuel, String nouveauMotDePasse) {
+        AdminUser user = adminUserRepository.findByLoginAndActifTrue(login)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Utilisateur introuvable."));
+
+        if (motDePasseActuel == null || !passwordEncoder.matches(motDePasseActuel, user.getMotDePasseHash())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mot de passe actuel incorrect.");
+        }
+        if (nouveauMotDePasse == null || nouveauMotDePasse.isBlank() || nouveauMotDePasse.length() < 6) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Le nouveau mot de passe doit contenir au moins 6 caracteres.");
+        }
+
+        user.setMotDePasseHash(passwordEncoder.encode(nouveauMotDePasse));
+        adminUserRepository.save(user);
+        auditService.record(login, "Changement de mot de passe (self-service)", "login=" + user.getLogin());
     }
 
     private AdminUser findUserOrThrow(Long userId) {
