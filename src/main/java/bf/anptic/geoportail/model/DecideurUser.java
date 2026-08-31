@@ -18,6 +18,7 @@ public class DecideurUser {
 
     private String login;
     private String nomComplet;
+    private String email; // pour l'envoi des alertes email ciblees par ministere - peut etre null
     private String motDePasseHash;
 
     @Enumerated(EnumType.STRING)
@@ -25,6 +26,13 @@ public class DecideurUser {
 
     private String ministere; // null si role = LAMBDA
     private Boolean actif;
+
+    // Preference personnelle du decideur : recevoir ou non les alertes
+    // email pour les incidents de son ministere (cf. IncidentAlertScheduler).
+    // Geree par le decideur lui-meme (bandeau "Activer les alertes" cote
+    // frontend decideur), pas par le Backoffice.
+    private Boolean alertesActivees;
+
     private Instant creeLe;
     private String creePar;
 
@@ -39,6 +47,8 @@ public class DecideurUser {
     public void setLogin(String login) { this.login = login; }
     public String getNomComplet() { return nomComplet; }
     public void setNomComplet(String nomComplet) { this.nomComplet = nomComplet; }
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
     public String getMotDePasseHash() { return motDePasseHash; }
     public void setMotDePasseHash(String motDePasseHash) { this.motDePasseHash = motDePasseHash; }
     public Role getRole() { return role; }
@@ -47,6 +57,8 @@ public class DecideurUser {
     public void setMinistere(String ministere) { this.ministere = ministere; }
     public Boolean getActif() { return actif; }
     public void setActif(Boolean actif) { this.actif = actif; }
+    public Boolean getAlertesActivees() { return alertesActivees; }
+    public void setAlertesActivees(Boolean alertesActivees) { this.alertesActivees = alertesActivees; }
     public Instant getCreeLe() { return creeLe; }
     public void setCreeLe(Instant creeLe) { this.creeLe = creeLe; }
     public String getCreePar() { return creePar; }

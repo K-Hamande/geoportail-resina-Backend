@@ -12,6 +12,17 @@ spring:
     default-schema: geoportail_resina
     baseline-on-migrate: true
     baseline-version: 0
+  mail:
+    host: ${RESINA_ALERT_SMTP_HOST:smtp.gmail.com}
+    port: ${RESINA_ALERT_SMTP_PORT:587}
+    username: ${RESINA_ALERT_SMTP_USERNAME:}
+    password: ${RESINA_ALERT_SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
 
 resina:
   message: "Configuration de base (aucun profil specifique)"
@@ -19,3 +30,12 @@ resina:
     enabled: true
     sites-cron: "0 0 2 * * *"
     equipments-cron: "0 15 2 * * *"
+  # Alerte email "version 1" : un seul destinataire, prevenu pour
+  # n'importe quel site des qu'un incident (ANPTIC ou LAN) apparait.
+  # RESINA_ALERT_EMAIL et les identifiants SMTP (RESINA_ALERT_SMTP_*)
+  # sont a definir en variables d'environnement - laisses vides ici,
+  # l'envoi est simplement ignore (avec un log) tant qu'ils ne le sont pas.
+  alertes:
+    enabled: true
+    check-cron: "0 */5 * * * *"
+    email-destinataire: ${RESINA_ALERT_EMAIL:}

@@ -9,4 +9,8 @@ import java.util.Optional;
 public interface DecideurUserRepository extends JpaRepository<DecideurUser, Long> {
     Optional<DecideurUser> findByLoginAndActifTrue(String login);
     List<DecideurUser> findAllByOrderByCreeLeDesc();
+
+    // Decideurs actifs d'un ministere donne, pour cibler les alertes email
+    // par site (le site appartient a un ministere - cf. Site.ministere).
+    List<DecideurUser> findByMinistereAndRoleAndActifTrue(String ministere, DecideurUser.Role role);
 }

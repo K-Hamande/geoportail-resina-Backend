@@ -27,6 +27,7 @@ public class IncidentService {
             String siteId = s.site().getSiteId();
             String nom = s.site().getNom();
             String ville = s.site().getVille();
+            String ministere = s.site().getMinistere();
 
             if (s.anpticStatus() != NodeStatus.OK) {
                 incidents.add(new IncidentDto(
@@ -35,6 +36,7 @@ public class IncidentService {
                         siteId,
                         nom,
                         ville,
+                        ministere,
                         s.anpticStatus(),
                         "La connexion ANPTIC n'est pas disponible" + (s.anpticTechnologie() != null ? " (" + s.anpticTechnologie() + ")" : ""),
                         s.anpticIndisponibleDepuis() != null ? s.anpticIndisponibleDepuis() : Instant.now()
@@ -48,6 +50,7 @@ public class IncidentService {
                         siteId,
                         nom,
                         ville,
+                        ministere,
                         s.lanStatus(),
                         s.lanEquipementsEnPanne() + " équipement(s) hors service sur " + s.lanEquipementsTotal(),
                         Instant.now()

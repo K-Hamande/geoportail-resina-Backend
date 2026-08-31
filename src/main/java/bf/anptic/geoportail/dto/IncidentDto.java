@@ -16,6 +16,9 @@ public record IncidentDto(
         String siteId,
         String siteNom,
         String ville,
+        String ministere,      // ministere proprietaire du site (peut etre null) -
+                                // sert a cibler les alertes email vers les decideurs
+                                // de ce ministere (cf. IncidentAlertScheduler)
         NodeStatus nouveauStatut,
         String message,
         Instant survenuLe

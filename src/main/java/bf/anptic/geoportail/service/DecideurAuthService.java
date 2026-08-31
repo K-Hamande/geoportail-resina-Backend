@@ -69,10 +69,12 @@ public class DecideurAuthService {
         DecideurUser user = new DecideurUser();
         user.setLogin(request.login());
         user.setNomComplet(request.nomComplet());
+        user.setEmail(request.email());
         user.setMotDePasseHash(ENCODER.encode(request.motDePasse()));
         user.setRole(DecideurUser.Role.valueOf(request.role()));
         user.setMinistere(request.ministere());
         user.setActif(true);
+        user.setAlertesActivees(false);
         user.setCreeLe(Instant.now());
         user.setCreePar(auteur);
 
@@ -90,6 +92,7 @@ public class DecideurAuthService {
                         HttpStatus.NOT_FOUND, "Utilisateur introuvable."));
 
         user.setNomComplet(request.nomComplet());
+        user.setEmail(request.email());
         user.setRole(DecideurUser.Role.valueOf(request.role()));
         user.setMinistere(request.ministere());
         if (request.motDePasse() != null && !request.motDePasse().isBlank()) {
@@ -111,7 +114,7 @@ public class DecideurAuthService {
                 "login=" + user.getLogin());
     }
 
-        // Suppression definitive d'un compte decideur (appelee par un admin
+    // Suppression definitive d'un compte decideur (appelee par un admin
     // Backoffice - le decideur lui-meme n'a pas acces a cet endpoint).
     public void deleteUser(Long id, String auteur) {
         DecideurUser user = decideurUserRepository.findById(id)
@@ -123,9 +126,31 @@ public class DecideurAuthService {
 
     private DecideurAuthDto.DecideurUserResponse toResponse(DecideurUser u) {
         return new DecideurAuthDto.DecideurUserResponse(
-                u.getId(), u.getLogin(), u.getNomComplet(),
+                u.getId(), u.getLogin(), u.getNomComplet(), u.getEmail(),
                 u.getRole().name(), u.getMinistere(),
-                u.getActif(), u.getCreeLe()
+                u.getActif(), u.getAlertesActivees(), u.getCreeLe()
         );
+    }
+
+    // ---- Preference "alertes email" geree par le decideur lui-meme ----
+
+    public boolean getAlertesActivees(Long userId) {
+        if (userId == null) {
+            return false;
+        }
+        return decideurUserRepository.findById(userId)
+                .map(u -> Boolean.TRUE.equals(u.getAlertesActivees()))
+                .orElse(false);
+    }
+
+    public void setAlertesActivees(Long userId, boolean activees) {
+        if (userId == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Session invalide.");
+        }
+        DecideurUser user = decideurUserRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Utilisateur introuvable."));
+        user.setAlertesActivees(activees);
+        decideurUserRepository.save(user);
     }
 }

@@ -12,7 +12,7 @@ import java.io.IOException;
 
 // Filtre unique qui gere toute l'authentification decideur :
 // 1) Lit le JWT depuis Authorization: Bearer <token>
-// 2) Valide et alimente AccessScopeHolder (role + ministere)
+// 2) Valide et alimente AccessScopeHolder (role + ministere + userId)
 // 3) Rejette les requetes sans JWT valide sur /api/v1 (sauf /auth)
 @Component
 public class SiteAccessTokenFilter extends OncePerRequestFilter {
@@ -46,6 +46,9 @@ public class SiteAccessTokenFilter extends OncePerRequestFilter {
                     Claims claims = jwtService.validerToken(token);
                     String role = (String) claims.get("role");
                     String ministere = (String) claims.get("ministere");
+                    Long userId = claims.get("userId", Long.class);
+
+                    AccessScopeHolder.setUserId(userId);
 
                     if ("LAMBDA".equals(role)) {
                         AccessScopeHolder.setMinistere(null);
