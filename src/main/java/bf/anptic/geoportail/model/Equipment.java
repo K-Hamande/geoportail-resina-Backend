@@ -35,6 +35,13 @@ public class Equipment {
 
     private Integer netxmsObjectId;
 
+    // Proprietaire de l'equipement tel que remonte par NetXMS
+    // (geo_equipement.propriete) : 'ANPTIC' ou l'acronyme d'un ministere
+    // (ex: 'MEFP'). Conserve pour un usage futur eventuel (badge
+    // ANPTIC/ministere cote decideur ou Backoffice) - aucune lecture ne
+    // filtre dessus actuellement, le decideur voit tous les equipements.
+    private String propriete;
+
     public enum EquipmentType {
         BORNE_WIFI,     // Point d'acces Wi-Fi
         COMMUTATEUR,    // Switch
@@ -103,5 +110,13 @@ public class Equipment {
 
     public void setNetxmsObjectId(Integer netxmsObjectId) {
         this.netxmsObjectId = netxmsObjectId;
+    }
+
+    public String getPropriete() {
+        return propriete;
+    }
+
+    public void setPropriete(String propriete) {
+        this.propriete = propriete;
     }
 }

@@ -18,10 +18,14 @@ import java.util.Map;
 import java.util.Optional;
 
 // Synchronise le catalogue COMPLET des equipements depuis netxmsdb
-// (geo_equipement) vers la table applicative equipments. Contrairement
-// a la version precedente qui excluait les routeurs (reserves pour le
-// WAN via /anptic), on importe desormais TOUS les types afin d'alimenter
-// les statistiques par type d'equipement dans le Backoffice.
+// (geo_equipement) vers la table applicative equipments - ANPTIC et
+// batiment confondus, sans aucun filtre sur "propriete" : c'est ce qui
+// alimente l'inventaire complet de la page Backoffice "Equipements
+// reseau" (§3.2.6b) ET la liste complete vue par le decideur
+// (LanStatusService) sur un site donne. La colonne propriete est
+// conservee telle quelle sur chaque ligne pour un usage futur eventuel
+// (badge ANPTIC/ministere), mais aucune lecture ne filtre dessus
+// actuellement.
 // Les champs etageLabel et libelleAffiche ne sont JAMAIS ecrases par
 // une resynchronisation - ils sont proteges pour les assignations
 // manuelles.
@@ -30,9 +34,9 @@ public class EquipmentSyncService {
 
     private static final Logger log = LoggerFactory.getLogger(EquipmentSyncService.class);
 
-    // Plus de filtre "hors routeurs" : on importe TOUT.
+    // Aucun filtre "hors ANPTIC" ni "hors routeurs" : on importe TOUT.
     private static final String SELECT_EQUIPEMENTS = """
-            SELECT object_id, siteadmin_id, name, type
+            SELECT object_id, siteadmin_id, name, type, propriete
             FROM public.geo_equipement
             ORDER BY siteadmin_id
             """;
@@ -70,7 +74,8 @@ public class EquipmentSyncService {
                         rs.getInt("object_id"),
                         rs.getInt("siteadmin_id"),
                         rs.getString("name"),
-                        rs.getString("type")
+                        rs.getString("type"),
+                        rs.getString("propriete")
                 ));
 
         SyncResult result = new SyncResult();
@@ -90,6 +95,7 @@ public class EquipmentSyncService {
                 eq.setSite(site);
                 eq.setType(mapType(row.type()));
                 eq.setNomTechniqueNetxms(row.name());
+                eq.setPropriete(row.propriete());
                 equipmentRepository.save(eq);
                 result.misAJour++;
             } else {
@@ -98,6 +104,7 @@ public class EquipmentSyncService {
                 eq.setNetxmsObjectId(row.objectId());
                 eq.setType(mapType(row.type()));
                 eq.setNomTechniqueNetxms(row.name());
+                eq.setPropriete(row.propriete());
                 eq.setEtageLabel(null);
                 eq.setLibelleAffiche(null);
                 equipmentRepository.save(eq);
@@ -132,5 +139,5 @@ public class EquipmentSyncService {
         return EquipmentType.AUTRE;
     }
 
-    private record EquipementRow(int objectId, int siteadminId, String name, String type) {}
+    private record EquipementRow(int objectId, int siteadminId, String name, String type, String propriete) {}
 }
