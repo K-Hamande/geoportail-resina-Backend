@@ -18,6 +18,22 @@
 
     <properties>
         <java.version>17</java.version>
+        <!-- Force UTF-8 pour la lecture des fichiers .java par javac ET
+             pour les ressources copiees (application.yaml, etc.).
+             SANS CA, Maven se rabat sur l'encodage par defaut de la
+             plateforme (variable selon les reglages Windows de chaque
+             poste), ce qui corrompt silencieusement tout caractere
+             accentue ecrit litteralement dans un fichier .java (ex :
+             "Ministère" devient "MinistΦre" a la compilation sur
+             certains postes, meme si le fichier source est bien en
+             UTF-8 sur le disque) - exactement le probleme observe chez
+             un collegue sur /historique/... des sites RESINA.
+             chcp 65001 dans PowerShell ne corrige PAS ce probleme :
+             ca ne change que l'affichage dans le terminal, pas la
+             maniere dont javac lit les fichiers source pendant la
+             compilation. -->
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     </properties>
 
     <dependencies>
