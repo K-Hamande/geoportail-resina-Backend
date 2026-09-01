@@ -37,8 +37,19 @@ public class StartupSyncService {
             EquipmentSyncService.SyncResult equip = equipmentSyncService.syncEquipements();
             log.info("Equipements : {} crees, {} mis a jour, {} ignores", equip.crees, equip.misAJour, equip.ignores);
         } catch (Exception e) {
-            // On ne bloque pas le demarrage si NetXMS est inaccessible
-            log.warn("Synchronisation au demarrage echouee (NetXMS inaccessible ?) : {}", e.getMessage());
+            // On ne bloque pas le demarrage si NetXMS est inaccessible.
+            //
+            // IMPORTANT (diagnostic temporaire) : on passe l'exception
+            // ENTIERE a SLF4J (pas juste e.getMessage()) pour que la
+            // trace complete - y compris "Caused by: ..." avec le vrai
+            // message PostgreSQL - s'affiche dans la console. Avec
+            // e.getMessage() seul, on ne voyait QUE le resume de haut
+            // niveau ("StatementCallback; bad SQL grammar [...]"),
+            // jamais la cause reelle en dessous - d'ou l'impossibilite
+            // de diagnostiquer le probleme jusqu'ici. A remettre en
+            // "e.getMessage()" une fois le vrai probleme identifie et
+            // corrige, pour ne pas polluer la console au quotidien.
+            log.warn("Synchronisation au demarrage echouee (NetXMS inaccessible ?)", e);
         }
     }
 }
