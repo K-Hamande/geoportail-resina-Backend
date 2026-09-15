@@ -46,4 +46,9 @@ public class AdminDecideurController {
     public void deactivate(@PathVariable Long id, Authentication authentication) {
         decideurAuthService.setActive(id, false, authentication.getName());
     }
+
+    @DeleteMapping("/{id}")
+    public void deleteUser(@PathVariable Long id, Authentication authentication) {
+        decideurAuthService.deleteUser(id, authentication.getName());
+    }
 }
