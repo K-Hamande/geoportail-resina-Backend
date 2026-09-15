@@ -35,10 +35,13 @@ public class SiteAccessTokenFilter extends OncePerRequestFilter {
         // donc avant tout JWT utilisable), vue "utilisateur lambda"
         // (statut OK/KO simplifie, sans compte necessaire - voir
         // SiteController#listSitesStatutSimple, aucune donnee technique
-        // ni filtrage par ministere) + tout ce qui n'est pas /api/v1
+        // ni filtrage par ministere), page publique "Geoportail national"
+        // / couverture par commune (CouvertureNationaleController - meme
+        // esprit, aucun compte requis) + tout ce qui n'est pas /api/v1
         if (!uri.startsWith("/api/v1") || uri.startsWith("/api/v1/auth")
                 || uri.equals("/api/v1/health") || uri.equals("/api/v1/push/public-key")
-                || uri.equals("/api/v1/sites/statut-simple")) {
+                || uri.equals("/api/v1/sites/statut-simple")
+                || uri.startsWith("/api/v1/couverture")) {
             chain.doFilter(request, response);
             return;
         }
