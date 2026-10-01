@@ -33,6 +33,11 @@ public class AdminUserService {
     }
 
 public AdminUserResponse createUser(AdminUserCreateRequest request, String auteur) {
+        if (adminUserRepository.existsByLogin(request.login())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Un compte avec ce login existe déjà.");
+        }
+
         AdminUser user = new AdminUser();
         user.setLogin(request.login());
         user.setNomComplet(request.nomComplet());
