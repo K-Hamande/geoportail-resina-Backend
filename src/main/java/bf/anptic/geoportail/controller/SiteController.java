@@ -1,17 +1,17 @@
 package bf.anptic.geoportail.controller;
 
 import bf.anptic.geoportail.dto.AnpticStatusDto;
-import bf.anptic.geoportail.dto.IncidentDto;
 import bf.anptic.geoportail.dto.LanStatusDto;
 import bf.anptic.geoportail.dto.MapSiteDto;
 import bf.anptic.geoportail.dto.RegisterTokenRequest;
 import bf.anptic.geoportail.dto.SiteNetworkDto;
 import bf.anptic.geoportail.dto.SiteSummaryDto;
+import bf.anptic.geoportail.dto.TicketIncidentDto;
 import bf.anptic.geoportail.model.Site;
 import bf.anptic.geoportail.repository.SiteRepository;
 import bf.anptic.geoportail.security.AccessScopeHolder;
 import bf.anptic.geoportail.service.AnpticStatusService;
-import bf.anptic.geoportail.service.IncidentService;
+import bf.anptic.geoportail.service.ItopIncidentService;
 import bf.anptic.geoportail.service.LanStatusService;
 import bf.anptic.geoportail.service.MapService;
 import bf.anptic.geoportail.service.NotificationService;
@@ -38,7 +38,7 @@ public class SiteController {
     private final NotificationService notificationService;
     private final MapService mapService;
     private final SiteNetworkService siteNetworkService;
-    private final IncidentService incidentService;
+    private final ItopIncidentService itopIncidentService;
     private final AdminSupervisionService supervisionService;
 
     public SiteController(SiteRepository siteRepository,
@@ -47,7 +47,7 @@ public class SiteController {
                            NotificationService notificationService,
                            MapService mapService,
                            SiteNetworkService siteNetworkService,
-                           IncidentService incidentService,
+                           ItopIncidentService itopIncidentService,
                            AdminSupervisionService supervisionService) {
         this.siteRepository = siteRepository;
         this.anpticStatusService = anpticStatusService;
@@ -55,7 +55,7 @@ public class SiteController {
         this.notificationService = notificationService;
         this.mapService = mapService;
         this.siteNetworkService = siteNetworkService;
-        this.incidentService = incidentService;
+        this.itopIncidentService = itopIncidentService;
         this.supervisionService = supervisionService;
     }
 
@@ -134,10 +134,13 @@ public class SiteController {
                 .toList();
     }
 
+    // Tickets d'incident iTop ouverts pour le ministere du decideur
+    // connecte - remplace l'ancien calcul automatique depuis NetXMS pour
+    // cet ecran (page "Alertes"). Filtre directement cote iTop (cf.
+    // ItopClient) : jamais de ticket d'un autre ministere recupere.
     @GetMapping("/incidents")
-    public List<IncidentDto> listIncidents() {
-        List<IncidentDto> tousLesIncidents = incidentService.listIncidents();
-        return filtrerParMinistere(tousLesIncidents, IncidentDto::siteId);
+    public List<TicketIncidentDto> listIncidents() {
+        return itopIncidentService.listerAlertesPourMinistere(AccessScopeHolder.getMinistere());
     }
 
     private void verifierAccesSite(String siteId) {
