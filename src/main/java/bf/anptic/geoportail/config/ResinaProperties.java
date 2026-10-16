@@ -10,12 +10,13 @@ public class ResinaProperties {
     private String message;
     private String accessToken;
 
-    // Defaut = la valeur du §4.4 du CDC ("10 requetes/minute/IP"). Sans ce
-    // defaut, un profil qui oublie de definir resina.rate-limit-capacity
-    // (ex: application-prod.yml avant ce correctif) heritait du defaut Java
-    // d'un int, 0 - ce qui bloquait ALORS TOUTES les requetes API des la
-    // 1ere seconde (RateLimitFilter : newCount <= 0 est toujours faux).
-    private int rateLimitCapacity = 10;
+    // Defaut = la valeur appliquee en production (cf. application-prod.yml,
+    // relevee de 10 a 50 - §4.4 du CDC fixait 10, trop juste en usage reel).
+    // Sans ce defaut, un profil qui oublie de definir
+    // resina.rate-limit-capacity heritait du defaut Java d'un int, 0 - ce
+    // qui bloquait ALORS TOUTES les requetes API des la 1ere seconde
+    // (RateLimitFilter : newCount <= 0 est toujours faux).
+    private int rateLimitCapacity = 50;
 
     public String getMessage() {
         return message;
