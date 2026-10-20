@@ -1,6 +1,7 @@
 package bf.anptic.geoportail.controller;
 
 import bf.anptic.geoportail.dto.AnpticStatusDto;
+import bf.anptic.geoportail.dto.IncidentDto;
 import bf.anptic.geoportail.dto.LanStatusDto;
 import bf.anptic.geoportail.dto.MapSiteDto;
 import bf.anptic.geoportail.dto.RegisterTokenRequest;
@@ -11,6 +12,7 @@ import bf.anptic.geoportail.model.Site;
 import bf.anptic.geoportail.repository.SiteRepository;
 import bf.anptic.geoportail.security.AccessScopeHolder;
 import bf.anptic.geoportail.service.AnpticStatusService;
+import bf.anptic.geoportail.service.IncidentService;
 import bf.anptic.geoportail.service.ItopIncidentService;
 import bf.anptic.geoportail.service.LanStatusService;
 import bf.anptic.geoportail.service.MapService;
@@ -38,6 +40,7 @@ public class SiteController {
     private final NotificationService notificationService;
     private final MapService mapService;
     private final SiteNetworkService siteNetworkService;
+    private final IncidentService incidentService;
     private final ItopIncidentService itopIncidentService;
     private final AdminSupervisionService supervisionService;
 
@@ -47,6 +50,7 @@ public class SiteController {
                            NotificationService notificationService,
                            MapService mapService,
                            SiteNetworkService siteNetworkService,
+                           IncidentService incidentService,
                            ItopIncidentService itopIncidentService,
                            AdminSupervisionService supervisionService) {
         this.siteRepository = siteRepository;
@@ -55,6 +59,7 @@ public class SiteController {
         this.notificationService = notificationService;
         this.mapService = mapService;
         this.siteNetworkService = siteNetworkService;
+        this.incidentService = incidentService;
         this.itopIncidentService = itopIncidentService;
         this.supervisionService = supervisionService;
     }
@@ -135,12 +140,23 @@ public class SiteController {
     }
 
     // Tickets d'incident iTop ouverts pour le ministere du decideur
-    // connecte - remplace l'ancien calcul automatique depuis NetXMS pour
-    // cet ecran (page "Alertes"). Filtre directement cote iTop (cf.
+    // connecte - section "Incidents" de la page Alertes (cf. endpoint
+    // /alertes-reseau ci-dessous pour la section "Alertes reseau" temps
+    // reel, calculee depuis NetXMS). Filtre directement cote iTop (cf.
     // ItopClient) : jamais de ticket d'un autre ministere recupere.
     @GetMapping("/incidents")
     public List<TicketIncidentDto> listIncidents() {
         return itopIncidentService.listerAlertesPourMinistere(AccessScopeHolder.getMinistere());
+    }
+
+    // Alertes reseau temps reel (changements de statut ANPTIC/LAN,
+    // calcules a la volee depuis NetXMS) - section "Alertes reseau" de la
+    // page Alertes, distincte des tickets iTop ci-dessus (/incidents).
+    // C'est l'ancien contenu de /incidents avant l'integration iTop.
+    @GetMapping("/alertes-reseau")
+    public List<IncidentDto> listAlertesReseau() {
+        List<IncidentDto> tousLesIncidents = incidentService.listIncidents();
+        return filtrerParMinistere(tousLesIncidents, IncidentDto::siteId);
     }
 
     private void verifierAccesSite(String siteId) {

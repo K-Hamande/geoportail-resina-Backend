@@ -63,12 +63,16 @@ resina:
     sites-cron: "0 0 2 * * *"
     equipments-cron: "0 15 2 * * *"
   # API REST iTop (ANPTIC) - source des tickets d'incident affiches au
-  # decideur sur la page "Alertes". Identifiants a fournir via variables
-  # d'environnement en production (jamais commites) ; cf.
-  # application-dev.yml (gitignore) pour les valeurs de developpement.
+  # decideur sur la page "Alertes" ET synchronises localement (cf.
+  # ItopSyncScheduler/ItopTicketHistoryService) pour l'onglet "Incidents
+  # iTop" de la page Backoffice "Historique des incidents". Identifiants
+  # a fournir via variables d'environnement en production (jamais
+  # commites) ; cf. application-dev.yml (gitignore) pour les valeurs de
+  # developpement.
   itop:
     base-url: ${RESINA_ITOP_BASE_URL:}
     version: ${RESINA_ITOP_VERSION:1.0}
+    sync-cron: "0 */10 * * * *"
     login: ${RESINA_ITOP_LOGIN:}
     password: ${RESINA_ITOP_PASSWORD:}
   # Alerte email "version 1" : un seul destinataire, prevenu pour

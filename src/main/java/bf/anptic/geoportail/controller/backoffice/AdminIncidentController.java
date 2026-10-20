@@ -2,7 +2,10 @@ package bf.anptic.geoportail.controller.backoffice;
 
 import bf.anptic.geoportail.dto.IncidentHistoriqueDto;
 import bf.anptic.geoportail.dto.IncidentHistoriquePageDto;
+import bf.anptic.geoportail.dto.ItopTicketHistoriqueDto;
+import bf.anptic.geoportail.dto.ItopTicketHistoriquePageDto;
 import bf.anptic.geoportail.service.IncidentHistoryService;
+import bf.anptic.geoportail.service.ItopTicketHistoryService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -31,9 +34,97 @@ public class AdminIncidentController {
     private static final ZoneId FUSEAU = ZoneId.of("Africa/Ouagadougou");
 
     private final IncidentHistoryService incidentHistoryService;
+    private final ItopTicketHistoryService itopTicketHistoryService;
 
-    public AdminIncidentController(IncidentHistoryService incidentHistoryService) {
+    public AdminIncidentController(IncidentHistoryService incidentHistoryService,
+                                    ItopTicketHistoryService itopTicketHistoryService) {
         this.incidentHistoryService = incidentHistoryService;
+        this.itopTicketHistoryService = itopTicketHistoryService;
+    }
+
+    // Fenetre de dates commune aux 2 onglets (alertes reseau / incidents
+    // iTop) - meme logique "date precise" vs "jours glissants" que
+    // historique()/exporterHistorique() ci-dessous.
+    private Instant[] calculerFenetre(Integer jours, String date) {
+        if (date != null && !date.isBlank()) {
+            LocalDate jour = LocalDate.parse(date);
+            return new Instant[]{
+                    jour.atStartOfDay(FUSEAU).toInstant(),
+                    jour.plusDays(1).atStartOfDay(FUSEAU).toInstant()
+            };
+        }
+        int nombreJours = (jours != null && jours > 0) ? jours : 30;
+        Instant fin = Instant.now();
+        return new Instant[]{fin.minus(nombreJours, ChronoUnit.DAYS), fin};
+    }
+
+    // Onglet "Incidents iTop" - meme principe de filtres que /historique
+    // (periode/date, ministere, recherche), "statut" remplace "type"+"etat"
+    // (valeurs iTop brutes : ongoing/resolved/closed, cf. TicketIncidentDto
+    // cote decideur).
+    @GetMapping("/itop-historique")
+    public ItopTicketHistoriquePageDto itopHistorique(
+            @RequestParam(required = false) Integer jours,
+            @RequestParam(required = false) String date,
+            @RequestParam(required = false) String statut,
+            @RequestParam(required = false) String ministere,
+            @RequestParam(required = false) String recherche,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer taille) {
+
+        Instant[] fenetre = calculerFenetre(jours, date);
+        int numeroPage = (page != null && page >= 0) ? page : 0;
+        int taillePage = (taille != null && taille > 0) ? taille : 20;
+
+        return itopTicketHistoryService.rechercher(
+                fenetre[0], fenetre[1], statut, ministere, recherche, numeroPage, taillePage);
+    }
+
+    @GetMapping("/itop-historique/export")
+    public ResponseEntity<byte[]> exporterItopHistorique(
+            @RequestParam(required = false) Integer jours,
+            @RequestParam(required = false) String date,
+            @RequestParam(required = false) String statut,
+            @RequestParam(required = false) String ministere,
+            @RequestParam(required = false) String recherche) {
+
+        Instant[] fenetre = calculerFenetre(jours, date);
+        List<ItopTicketHistoriqueDto> tickets = itopTicketHistoryService.rechercherPourExport(
+                fenetre[0], fenetre[1], statut, ministere, recherche);
+
+        String csv = construireCsvItop(tickets);
+        byte[] contenu = ajouterBomUtf8(csv);
+        String nomFichier = "historique-incidents-itop-"
+                + LocalDate.now(FUSEAU).format(DateTimeFormatter.ISO_LOCAL_DATE) + ".csv";
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + nomFichier + "\"")
+                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .body(contenu);
+    }
+
+    private String construireCsvItop(List<ItopTicketHistoriqueDto> tickets) {
+        StringBuilder csv = new StringBuilder();
+        csv.append("Reference;Titre;Ministere;Statut;Debut;Cloture\r\n");
+        for (ItopTicketHistoriqueDto t : tickets) {
+            csv.append(echapper(t.ref())).append(';')
+                    .append(echapper(t.titre())).append(';')
+                    .append(echapper(t.ministere())).append(';')
+                    .append(echapper(t.statut())).append(';')
+                    .append(FORMAT_DATE_HEURE_CSV.format(t.survenuLe())).append(';')
+                    .append(t.clotureLe() != null ? FORMAT_DATE_HEURE_CSV.format(t.clotureLe()) : "")
+                    .append("\r\n");
+        }
+        return csv.toString();
+    }
+
+    private byte[] ajouterBomUtf8(String csv) {
+        byte[] corpsCsv = csv.getBytes(StandardCharsets.UTF_8);
+        byte[] bom = {(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
+        byte[] contenu = new byte[bom.length + corpsCsv.length];
+        System.arraycopy(bom, 0, contenu, 0, bom.length);
+        System.arraycopy(corpsCsv, 0, contenu, bom.length, corpsCsv.length);
+        return contenu;
     }
 
     // Deux facons de choisir la fenetre de dates :
