@@ -66,10 +66,22 @@ public class NotificationService {
     // selectionne, alors que la liste SANS filtre les montrait (avec un
     // badge "Expire") - incoherent. Plus aucun filtre ne restreint sur
     // "actif" desormais, quelle que soit la combinaison de filtres.
+    // Bornes par defaut quand dateDebut/dateFin ne sont pas fournis (filtre
+    // periode inactif) - PostgreSQL ne peut pas determiner le type d'un
+    // parametre timestamp teste uniquement via "IS NULL" (voir le
+    // correctif dans NotificationTokenRepository), donc on passe toujours
+    // des valeurs concretes plutot que null. BORNE_FIN_PAR_DEFAUT reste
+    // large (annee 9999) sans flirter avec les limites du type timestamp
+    // de Postgres (~294276 AD), contrairement a Instant.MAX.
+    private static final Instant BORNE_DEBUT_PAR_DEFAUT = Instant.EPOCH;
+    private static final Instant BORNE_FIN_PAR_DEFAUT = Instant.parse("9999-12-31T23:59:59Z");
+
     public List<NotificationTokenResponse> listTokens(String siteId, String ministere, String ville,
                                                         Instant dateDebut, Instant dateFin) {
         List<NotificationToken> tokens = notificationTokenRepository.rechercher(
-                normaliser(siteId), normaliser(ministere), normaliser(ville), dateDebut, dateFin);
+                normaliser(siteId), normaliser(ministere), normaliser(ville),
+                dateDebut != null ? dateDebut : BORNE_DEBUT_PAR_DEFAUT,
+                dateFin != null ? dateFin : BORNE_FIN_PAR_DEFAUT);
 
         // Ignore defensivement toute ligne "orpheline" (site_id NULL ou
         // pointant vers un site supprime) plutot que de planter toute la
