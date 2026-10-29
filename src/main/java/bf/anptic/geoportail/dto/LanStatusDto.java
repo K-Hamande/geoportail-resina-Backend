@@ -31,7 +31,18 @@ public record LanStatusDto(
             Long id,
             String libelleAffiche,
             String type,
-            NodeStatus status
+            NodeStatus status,
+            // Informations detaillees (section IV du compte rendu des
+            // amendements : "consultation des informations detaillees de
+            // tous les equipements rattaches a chaque batiment"). Issues de
+            // netxmsdb (geo_equipement) quand disponibles - null sinon
+            // (equipement non retrouve cote NetXMS, ex: objectId absent).
+            // Jamais le nom technique NetXMS brut (§4.4 du CDC).
+            String vendor,
+            String modele,
+            String emplacement,
+            String trafficEntrant,
+            String trafficSortant
     ) {}
 
     public record ContactDsiDto(

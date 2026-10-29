@@ -14,5 +14,12 @@ public record SiteAdminRequest(
         String contactDsiTelephone,
         String contactDsiEmail,
         Integer netxmsNodeId,
-        Integer niveaux
+        Integer niveaux,
+        // Jusqu'ici renseignes UNIQUEMENT par la synchro NetXMS
+        // (NetxmsSiteImportService), jamais par une creation/modification
+        // manuelle ni par import CSV - ajoutes pour l'import CSV de sites
+        // (section VI du compte rendu des amendements), sans quoi un site
+        // importe par ce biais n'aurait ni ministere ni province renseignes.
+        String ministere,
+        String province
 ) {}

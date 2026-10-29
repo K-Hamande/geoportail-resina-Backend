@@ -105,14 +105,15 @@ public class AdminIncidentController {
 
     private String construireCsvItop(List<ItopTicketHistoriqueDto> tickets) {
         StringBuilder csv = new StringBuilder();
-        csv.append("Reference;Titre;Ministere;Statut;Debut;Cloture\r\n");
+        csv.append("Reference;Titre;Ministere;Statut;Debut;Cloture;Nombre tickets (ministere)\r\n");
         for (ItopTicketHistoriqueDto t : tickets) {
             csv.append(echapper(t.ref())).append(';')
                     .append(echapper(t.titre())).append(';')
                     .append(echapper(t.ministere())).append(';')
                     .append(echapper(t.statut())).append(';')
                     .append(FORMAT_DATE_HEURE_CSV.format(t.survenuLe())).append(';')
-                    .append(t.clotureLe() != null ? FORMAT_DATE_HEURE_CSV.format(t.clotureLe()) : "")
+                    .append(t.clotureLe() != null ? FORMAT_DATE_HEURE_CSV.format(t.clotureLe()) : "").append(';')
+                    .append(t.nombreTicketsMinistere())
                     .append("\r\n");
         }
         return csv.toString();
@@ -219,7 +220,7 @@ public class AdminIncidentController {
 
     private String construireCsv(List<IncidentHistoriqueDto> incidents) {
         StringBuilder csv = new StringBuilder();
-        csv.append("Site;Ville;Ministere;Type;Statut;Etat;Debut;Fin;Duree (minutes)\r\n");
+        csv.append("Site;Ville;Ministere;Type;Statut;Etat;Debut;Fin;Duree (minutes);Nombre incidents (site);Disponibilite site (%)\r\n");
         for (IncidentHistoriqueDto i : incidents) {
             csv.append(echapper(i.siteNom())).append(';')
                     .append(echapper(i.ville())).append(';')
@@ -229,7 +230,9 @@ public class AdminIncidentController {
                     .append(i.enCours() ? "En cours" : "Resolu").append(';')
                     .append(FORMAT_DATE_HEURE_CSV.format(i.debutLe())).append(';')
                     .append(i.finLe() != null ? FORMAT_DATE_HEURE_CSV.format(i.finLe()) : "").append(';')
-                    .append(i.dureeMinutes())
+                    .append(i.dureeMinutes()).append(';')
+                    .append(i.nombreIncidentsSite()).append(';')
+                    .append(i.disponibiliteSitePct() != null ? i.disponibiliteSitePct() : "")
                     .append("\r\n");
         }
         return csv.toString();

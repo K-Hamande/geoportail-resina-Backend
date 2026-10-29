@@ -24,7 +24,24 @@ public record AnpticStatusDto(
         // le texte non technique (cf. AnpticStatusService.calculerQualite).
         String qualiteNiveau,
         Double latenceMs,
+        // Deja calcule et utilise dans le score de qualite depuis le debut
+        // (cf. AnpticStatusService.calculerQualite), mais jamais expose au
+        // frontend jusqu'ici - ajoute pour le compte rendu des amendements,
+        // section IV ("Perte de paquets" en complement de qualite/debit/latence).
+        Double perteDePaquetsPct,
         Double disponibilite30Jours,
         Instant indisponibleDepuis,
-        String actionMessage
-) {}
+        String actionMessage,
+        // Informations detaillees de l'equipement PRINCIPAL du site (le
+        // routeur si identifie, sinon le premier equipement rattache -
+        // meme logique que le choix de l'equipement utilise pour calculer
+        // tous les indicateurs ci-dessus). Jamais le nom technique NetXMS
+        // brut (§4.4 du CDC) - vendor/modele/emplacement uniquement.
+        EquipementPrincipalDto equipementPrincipal
+) {
+    public record EquipementPrincipalDto(
+            String vendor,
+            String modele,
+            String emplacement
+    ) {}
+}

@@ -15,5 +15,12 @@ public record IncidentHistoriqueStatsDto(
         long resolus,
         long enCours,
         long ko,
-        long warn
+        long warn,
+        // Section V du compte rendu des amendements : taux de disponibilite/
+        // indisponibilite sur la PERIODE FILTREE (pas 30 jours fixes comme
+        // AnpticStatusDto.disponibilite30Jours, cote decideur) - voir
+        // IncidentHistoryService.calculerDisponibilite pour le detail du calcul.
+        // Null si aucun site actif ne correspond au filtre (division impossible).
+        Double disponibilitePct,
+        Double indisponibilitePct
 ) {}

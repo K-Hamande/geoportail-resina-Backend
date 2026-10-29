@@ -58,11 +58,18 @@ public class NotificationService {
         notificationTokenRepository.save(entry);
     }
 
-    // Cote BACKOFFICE : consultation (§3.2.6b)
-    public List<NotificationTokenResponse> listTokens(String siteId) {
-        List<NotificationToken> tokens = (siteId == null || siteId.isBlank())
-                ? notificationTokenRepository.findAll()
-                : notificationTokenRepository.findBySite_SiteIdAndActifTrue(siteId);
+    // Cote BACKOFFICE : consultation (§3.2.6b), avec filtres optionnels
+    // (site, ministere, ville, fenetre de dates sur enregistreLe) - chaque
+    // parametre null/vide desactive son filtre. BUG CORRIGE au passage :
+    // l'ancien filtrage par site (findBySite_SiteIdAndActifTrue) excluait
+    // silencieusement les abonnements EXPIRES des qu'un site etait
+    // selectionne, alors que la liste SANS filtre les montrait (avec un
+    // badge "Expire") - incoherent. Plus aucun filtre ne restreint sur
+    // "actif" desormais, quelle que soit la combinaison de filtres.
+    public List<NotificationTokenResponse> listTokens(String siteId, String ministere, String ville,
+                                                        Instant dateDebut, Instant dateFin) {
+        List<NotificationToken> tokens = notificationTokenRepository.rechercher(
+                normaliser(siteId), normaliser(ministere), normaliser(ville), dateDebut, dateFin);
 
         // Ignore defensivement toute ligne "orpheline" (site_id NULL ou
         // pointant vers un site supprime) plutot que de planter toute la
@@ -91,11 +98,20 @@ public class NotificationService {
                 t.getId(),
                 t.getSite().getSiteId(),
                 t.getSite().getNom(),
+                t.getSite().getVille(),
+                t.getSite().getMinistere(),
                 t.getProfil(),
                 maskEndpoint(t.getEndpoint()),
                 t.getActif(),
                 t.getEnregistreLe()
         );
+    }
+
+    // "" (champ de filtre vide cote frontend) doit desactiver le filtre
+    // tout comme null - normalise les deux vers null avant de les passer
+    // a la requete (ou "IS NULL" a vraiment le sens de "pas de filtre").
+    private static String normaliser(String valeur) {
+        return (valeur != null && !valeur.isBlank()) ? valeur : null;
     }
 
     private static String maskEndpoint(String endpoint) {

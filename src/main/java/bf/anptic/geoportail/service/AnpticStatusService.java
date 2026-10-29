@@ -25,7 +25,8 @@ import java.util.List;
 public class AnpticStatusService {
 
     private static final String SELECT_ROUTEUR = """
-            SELECT object_id, status, technologie, traffic_entrant, traffic_sortant
+            SELECT object_id, status, technologie, traffic_entrant, traffic_sortant,
+                   vendor, product_name, net_location
             FROM public.geo_equipement
             WHERE siteadmin_id = ? AND type ILIKE '%rout%'
             ORDER BY object_id
@@ -33,7 +34,8 @@ public class AnpticStatusService {
             """;
 
     private static final String SELECT_PREMIER_EQUIPEMENT = """
-            SELECT object_id, status, technologie, traffic_entrant, traffic_sortant
+            SELECT object_id, status, technologie, traffic_entrant, traffic_sortant,
+                   vendor, product_name, net_location
             FROM public.geo_equipement
             WHERE siteadmin_id = ?
             ORDER BY object_id
@@ -120,8 +122,8 @@ public class AnpticStatusService {
 
         if (site.getNetxmsNodeId() == null) {
             return new AnpticStatusDto(siteId, NodeStatus.UNKNOWN, false,
-                    "Ce site n'est pas encore relie a NetXMS", null, null, null, null, null, null, null, null,
-                    "Contactez l'ANPTIC pour finaliser le rattachement de ce site");
+                    "Ce site n'est pas encore relie a NetXMS", null, null, null, null, null, null, null, null, null,
+                    "Contactez l'ANPTIC pour finaliser le rattachement de ce site", null);
         }
         int siteAdminId = site.getNetxmsNodeId();
 
@@ -132,9 +134,15 @@ public class AnpticStatusService {
 
         if (equipement == null) {
             return new AnpticStatusDto(siteId, NodeStatus.UNKNOWN, false,
-                    "Aucun equipement reseau recense pour ce site", null, null, null, null, null, null, null, null,
-                    "Contactez l'ANPTIC pour verifier le rattachement de ce site");
+                    "Aucun equipement reseau recense pour ce site", null, null, null, null, null, null, null, null, null,
+                    "Contactez l'ANPTIC pour verifier le rattachement de ce site", null);
         }
+
+        // Informations detaillees de l'equipement principal (section IV du
+        // compte rendu des amendements) - jamais le nom technique NetXMS
+        // (§4.4 du CDC), seulement vendor/modele/emplacement.
+        AnpticStatusDto.EquipementPrincipalDto equipementPrincipal = new AnpticStatusDto.EquipementPrincipalDto(
+                equipement.vendor(), equipement.modele(), equipement.emplacement());
 
         Double debitMontant = parseNombre(equipement.trafficSortant());
         Double debitDescendant = parseNombre(equipement.trafficEntrant());
@@ -189,9 +197,11 @@ public class AnpticStatusService {
                     qualite != null ? qualite.label() : null,
                     qualite != null ? qualite.niveau() : null,
                     latenceMs,
+                    perteDePaquetsPct,
                     dispo.pourcentage(),
                     null,
-                    null
+                    null,
+                    equipementPrincipal
             );
         } else {
             Instant indisponibleDepuis = dispo.downSince() != 0
@@ -208,9 +218,11 @@ public class AnpticStatusService {
                     null,
                     null,
                     null,
+                    perteDePaquetsPct,
                     dispo.pourcentage(),
                     indisponibleDepuis,
-                    "Veuillez contacter les services support de l'ANPTIC"
+                    "Veuillez contacter les services support de l'ANPTIC",
+                    equipementPrincipal
             );
         }
     }
@@ -284,14 +296,18 @@ public class AnpticStatusService {
     }
 
     private record EquipementRow(int objectId, Integer status, String technologie,
-                                  String trafficEntrant, String trafficSortant) {
+                                  String trafficEntrant, String trafficSortant,
+                                  String vendor, String modele, String emplacement) {
         static EquipementRow of(ResultSet rs, int rowNum) throws SQLException {
             return new EquipementRow(
                     rs.getInt("object_id"),
                     (Integer) rs.getObject("status"),
                     rs.getString("technologie"),
                     rs.getString("traffic_entrant"),
-                    rs.getString("traffic_sortant")
+                    rs.getString("traffic_sortant"),
+                    rs.getString("vendor"),
+                    rs.getString("product_name"),
+                    rs.getString("net_location")
             );
         }
     }

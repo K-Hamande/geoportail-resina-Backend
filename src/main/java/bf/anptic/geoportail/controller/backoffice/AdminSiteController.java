@@ -7,15 +7,19 @@ import bf.anptic.geoportail.dto.EquipmentStatsDto;
 import bf.anptic.geoportail.dto.MapSiteDto;
 import bf.anptic.geoportail.dto.SiteAdminRequest;
 import bf.anptic.geoportail.dto.SiteAdminResponse;
+import bf.anptic.geoportail.dto.SiteImportResultDto;
+import bf.anptic.geoportail.dto.EquipmentGraviteStatsDto;
 import bf.anptic.geoportail.model.Equipment;
 import bf.anptic.geoportail.repository.EquipmentRepository;
 import bf.anptic.geoportail.repository.SiteRepository;
 import bf.anptic.geoportail.service.MapService;
 import bf.anptic.geoportail.service.backoffice.AdminSiteService;
+import bf.anptic.geoportail.service.backoffice.EquipmentGraviteService;
 import bf.anptic.geoportail.service.backoffice.EquipmentSyncService;
 import bf.anptic.geoportail.service.backoffice.NetxmsSiteImportService;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -31,24 +35,35 @@ public class AdminSiteController {
     private final EquipmentRepository equipmentRepository;
     private final SiteRepository siteRepository;
     private final MapService mapService;
+    private final EquipmentGraviteService equipmentGraviteService;
 
     public AdminSiteController(AdminSiteService adminSiteService,
                                 NetxmsSiteImportService netxmsSiteImportService,
                                 EquipmentSyncService equipmentSyncService,
                                 EquipmentRepository equipmentRepository,
                                 SiteRepository siteRepository,
-                                MapService mapService) {
+                                MapService mapService,
+                                EquipmentGraviteService equipmentGraviteService) {
         this.adminSiteService = adminSiteService;
         this.netxmsSiteImportService = netxmsSiteImportService;
         this.equipmentSyncService = equipmentSyncService;
         this.equipmentRepository = equipmentRepository;
         this.siteRepository = siteRepository;
         this.mapService = mapService;
+        this.equipmentGraviteService = equipmentGraviteService;
     }
 
     @PostMapping("/sites/import-netxms")
     public NetxmsSiteImportService.ImportResult importSitesFromNetxms() {
         return netxmsSiteImportService.importSitesResina();
+    }
+
+    // Import CSV de sites (section VI du compte rendu des amendements),
+    // en complement de la synchro NetXMS ci-dessus.
+    @PostMapping("/sites/import-csv")
+    public SiteImportResultDto importSitesFromCsv(@RequestParam("fichier") MultipartFile fichier,
+                                                    Authentication authentication) {
+        return adminSiteService.importerSitesCsv(fichier, authentication.getName(), authentication);
     }
 
     @GetMapping("/sites")
@@ -111,6 +126,13 @@ public class AdminSiteController {
     @GetMapping("/equipments/count")
     public Map<String, Long> countEquipments() {
         return Map.of("total", equipmentRepository.count());
+    }
+
+    // Section II du compte rendu des amendements : repartition des
+    // equipements par niveau de gravite (Critique/Majeur/Intermediaire/Normal).
+    @GetMapping("/equipments/gravite")
+    public EquipmentGraviteStatsDto equipmentsGravite() {
+        return equipmentGraviteService.calculer();
     }
 
     @GetMapping("/equipments/stats")

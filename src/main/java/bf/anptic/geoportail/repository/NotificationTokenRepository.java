@@ -2,7 +2,10 @@ package bf.anptic.geoportail.repository;
 
 import bf.anptic.geoportail.model.NotificationToken;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -11,4 +14,26 @@ public interface NotificationTokenRepository extends JpaRepository<NotificationT
     List<NotificationToken> findBySite_SiteIdAndActifTrue(String siteId);
 
     Optional<NotificationToken> findBySite_SiteIdAndEndpoint(String siteId, String endpoint);
+
+    // Page Backoffice "Notifications push" : filtres optionnels (site,
+    // ministere, ville, fenetre de dates sur enregistreLe) - chaque
+    // parametre null desactive son filtre. LEFT JOIN (pas INNER) : les
+    // abonnements "orphelins" (site_id NULL ou pointant vers un site
+    // supprime) restent inclus tant qu'aucun filtre ministere/ville n'est
+    // actif, comme avant ce correctif (filtres defensifs cote service,
+    // cf. NotificationService.listTokens).
+    @Query("""
+            SELECT t FROM NotificationToken t LEFT JOIN t.site s
+            WHERE (:siteId IS NULL OR s.siteId = :siteId)
+              AND (:ministere IS NULL OR s.ministere = :ministere)
+              AND (:ville IS NULL OR s.ville = :ville)
+              AND (:dateDebut IS NULL OR t.enregistreLe >= :dateDebut)
+              AND (:dateFin IS NULL OR t.enregistreLe < :dateFin)
+            ORDER BY t.enregistreLe DESC
+            """)
+    List<NotificationToken> rechercher(@Param("siteId") String siteId,
+                                        @Param("ministere") String ministere,
+                                        @Param("ville") String ville,
+                                        @Param("dateDebut") Instant dateDebut,
+                                        @Param("dateFin") Instant dateFin);
 }

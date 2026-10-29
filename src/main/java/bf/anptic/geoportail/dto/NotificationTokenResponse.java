@@ -10,6 +10,8 @@ public record NotificationTokenResponse(
         Long id,
         String siteId,
         String siteNom,
+        String ville,
+        String ministere,
         String profil,
         String endpointMasque,
         Boolean actif,

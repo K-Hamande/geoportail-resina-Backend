@@ -14,7 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 // Equivalent de IncidentHistoryService, mais pour les tickets iTop : au
 // lieu de DETECTER des transitions d'etat depuis un calcul temps reel
@@ -93,7 +95,9 @@ public class ItopTicketHistoryService {
         int debutIndex = pageEffective * taillePageEffective;
         int finIndex = Math.min(debutIndex + taillePageEffective, totalElementsFiltres);
         List<ItopTicketHistoriqueDto> contenu = debutIndex < finIndex
-                ? filtres.subList(debutIndex, finIndex).stream().map(this::toDto).toList()
+                ? filtres.subList(debutIndex, finIndex).stream()
+                        .map(t -> toDto(t, resultat.nombreTicketsParMinistere()))
+                        .toList()
                 : List.of();
 
         return new ItopTicketHistoriquePageDto(
@@ -105,12 +109,15 @@ public class ItopTicketHistoryService {
     @Transactional(readOnly = true)
     public List<ItopTicketHistoriqueDto> rechercherPourExport(Instant fenetreDebut, Instant fenetreFin,
                                                                 String statut, String ministere, String recherche) {
-        return filtrerEtTrier(fenetreDebut, fenetreFin, statut, ministere, recherche)
-                .filtresParStatut().stream().map(this::toDto).toList();
+        ResultatFiltrage resultat = filtrerEtTrier(fenetreDebut, fenetreFin, statut, ministere, recherche);
+        return resultat.filtresParStatut().stream()
+                .map(t -> toDto(t, resultat.nombreTicketsParMinistere()))
+                .toList();
     }
 
     private record ResultatFiltrage(List<ItopTicketHistorique> filtresParStatut,
-                                     long total, long ongoing, long resolved, long closed) {
+                                     long total, long ongoing, long resolved, long closed,
+                                     Map<String, Integer> nombreTicketsParMinistere) {
     }
 
     private ResultatFiltrage filtrerEtTrier(Instant fenetreDebut, Instant fenetreFin,
@@ -134,17 +141,29 @@ public class ItopTicketHistoryService {
                 .sorted(Comparator.comparing(ItopTicketHistorique::getSurvenuLe, Comparator.reverseOrder()))
                 .toList();
 
-        return new ResultatFiltrage(filtresParStatut, total, ongoing, resolved, closed);
+        // Section V du compte rendu des amendements : nombre de tickets
+        // par ministere sur cette meme fenetre/ces memes filtres - pas de
+        // Collectors.groupingBy direct (NPE si ministere est null, ce qui
+        // arrive pour certains tickets iTop).
+        Map<String, Integer> nombreTicketsParMinistere = new HashMap<>();
+        for (ItopTicketHistorique t : correspondants) {
+            String cle = t.getMinistere() != null ? t.getMinistere() : "";
+            nombreTicketsParMinistere.merge(cle, 1, Integer::sum);
+        }
+
+        return new ResultatFiltrage(filtresParStatut, total, ongoing, resolved, closed, nombreTicketsParMinistere);
     }
 
     private String normaliser(String valeur) {
         return (valeur != null && !valeur.isBlank()) ? valeur.trim() : null;
     }
 
-    private ItopTicketHistoriqueDto toDto(ItopTicketHistorique t) {
+    private ItopTicketHistoriqueDto toDto(ItopTicketHistorique t, Map<String, Integer> nombreTicketsParMinistere) {
+        String cle = t.getMinistere() != null ? t.getMinistere() : "";
         return new ItopTicketHistoriqueDto(
                 t.getId(), t.getRef(), t.getTitre(), t.getMinistere(), t.getStatut(),
-                t.getSurvenuLe(), t.getClotureLe(), t.getClotureLe() != null
+                t.getSurvenuLe(), t.getClotureLe(), t.getClotureLe() != null,
+                nombreTicketsParMinistere.getOrDefault(cle, 0)
         );
     }
 }

@@ -30,6 +30,16 @@ public class LanStatusService {
             WHERE object_id IN (:ids)
             """;
 
+    // Informations detaillees par equipement (section IV du compte rendu
+    // des amendements) - vendor/modele/emplacement/trafic, JAMAIS la
+    // colonne "name" (nom technique NetXMS brut, interdit par le §4.4 du
+    // CDC - voir nomAffiche plus bas, construit separement).
+    private static final String SELECT_DETAILS = """
+            SELECT object_id, vendor, product_name, net_location, traffic_entrant, traffic_sortant
+            FROM public.geo_equipement
+            WHERE object_id IN (:ids)
+            """;
+
     private final SiteRepository siteRepository;
     private final EquipmentRepository equipmentRepository;
     private final NamedParameterJdbcTemplate netxmsNamedJdbcTemplate;
@@ -55,6 +65,7 @@ public class LanStatusService {
         // aucun filtre sur "propriete" ici.
         List<Equipment> equipments = equipmentRepository.findBySite_SiteId(siteId);
         Map<Integer, Integer> statusByObjectId = fetchStatuses(equipments);
+        Map<Integer, DetailRow> detailByObjectId = fetchDetails(equipments);
 
         Map<String, List<Equipment>> byFloor = new LinkedHashMap<>();
         for (Equipment eq : equipments) {
@@ -95,11 +106,18 @@ public class LanStatusService {
                     nomAffiche = typeLabel + " " + compteurGenerique;
                 }
 
+                DetailRow detail = detailByObjectId.get(eq.getNetxmsObjectId());
+
                 details.add(new EquipmentDetailDto(
                         eq.getId(),
                         nomAffiche,
                         eq.getType() != null ? eq.getType().name() : null,
-                        eqStatus
+                        eqStatus,
+                        detail != null ? detail.vendor() : null,
+                        detail != null ? detail.modele() : null,
+                        detail != null ? detail.emplacement() : null,
+                        detail != null ? detail.trafficEntrant() : null,
+                        detail != null ? detail.trafficSortant() : null
                 ));
             }
 
@@ -150,4 +168,31 @@ public class LanStatusService {
         });
         return result;
     }
+
+    private Map<Integer, DetailRow> fetchDetails(List<Equipment> equipments) {
+        List<Integer> ids = equipments.stream()
+                .map(Equipment::getNetxmsObjectId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<Integer, DetailRow> result = new HashMap<>();
+        netxmsNamedJdbcTemplate.query(SELECT_DETAILS, new MapSqlParameterSource("ids", ids), rs -> {
+            result.put(rs.getInt("object_id"), new DetailRow(
+                    rs.getString("vendor"),
+                    rs.getString("product_name"),
+                    rs.getString("net_location"),
+                    rs.getString("traffic_entrant"),
+                    rs.getString("traffic_sortant")
+            ));
+        });
+        return result;
+    }
+
+    private record DetailRow(String vendor, String modele, String emplacement,
+                              String trafficEntrant, String trafficSortant) {}
 }
