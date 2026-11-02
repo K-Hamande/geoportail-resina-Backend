@@ -109,10 +109,10 @@ public class IncidentHistoryService {
     // statistiques sur l'ensemble filtre AVANT de paginer sans requete
     // supplementaire.
     @Transactional(readOnly = true)
-    public IncidentHistoriquePageDto rechercher(Instant fenetreDebut, Instant fenetreFin,
+    public IncidentHistoriquePageDto rechercher(Instant fenetreDebut, Instant fenetreFin, String siteId,
                                                  String type, String etat, String ministere, String recherche,
                                                  int page, int taillePage) {
-        ResultatFiltrage resultat = filtrerEtTrier(fenetreDebut, fenetreFin, type, etat, ministere, recherche);
+        ResultatFiltrage resultat = filtrerEtTrier(fenetreDebut, fenetreFin, siteId, type, etat, ministere, recherche);
         List<IncidentHistorique> filtresParEtat = resultat.filtresParEtat();
 
         int taillePageEffective = Math.max(1, taillePage);
@@ -140,10 +140,10 @@ public class IncidentHistoryService {
     // doit inclure toutes les lignes correspondant aux filtres actifs sur
     // la page, pas seulement la page actuellement affichee.
     @Transactional(readOnly = true)
-    public List<IncidentHistoriqueDto> rechercherPourExport(Instant fenetreDebut, Instant fenetreFin,
+    public List<IncidentHistoriqueDto> rechercherPourExport(Instant fenetreDebut, Instant fenetreFin, String siteId,
                                                              String type, String etat, String ministere,
                                                              String recherche) {
-        ResultatFiltrage resultat = filtrerEtTrier(fenetreDebut, fenetreFin, type, etat, ministere, recherche);
+        ResultatFiltrage resultat = filtrerEtTrier(fenetreDebut, fenetreFin, siteId, type, etat, ministere, recherche);
         return resultat.filtresParEtat().stream()
                 .map(i -> toDto(i, resultat.nombreIncidentsParSite(), resultat.disponibiliteParSite()))
                 .toList();
@@ -156,15 +156,16 @@ public class IncidentHistoryService {
                                      Map<String, Double> disponibiliteParSite) {
     }
 
-    private ResultatFiltrage filtrerEtTrier(Instant fenetreDebut, Instant fenetreFin,
+    private ResultatFiltrage filtrerEtTrier(Instant fenetreDebut, Instant fenetreFin, String siteId,
                                              String type, String etat, String ministere, String recherche) {
+        String siteIdNormalise = normaliser(siteId);
         String typeNormalise = normaliser(type);
         String ministereNormalise = normaliser(ministere);
         String rechercheNormalisee = normaliser(recherche) != null
                 ? "%" + recherche.toLowerCase().trim() + "%" : null;
 
-        List<IncidentHistorique> correspondants =
-                repository.rechercher(fenetreDebut, fenetreFin, typeNormalise, ministereNormalise, rechercheNormalisee);
+        List<IncidentHistorique> correspondants = repository.rechercher(
+                fenetreDebut, fenetreFin, siteIdNormalise, typeNormalise, ministereNormalise, rechercheNormalisee);
 
         long total = correspondants.size();
         long enCours = correspondants.stream().filter(i -> i.getFinLe() == null).count();
@@ -183,7 +184,8 @@ public class IncidentHistoryService {
                         .thenComparing(IncidentHistorique::getDebutLe, Comparator.reverseOrder()))
                 .toList();
 
-        Double[] disponibilite = calculerDisponibilite(correspondants, fenetreDebut, fenetreFin, ministereNormalise);
+        Double[] disponibilite = calculerDisponibilite(correspondants, fenetreDebut, fenetreFin,
+                siteIdNormalise, ministereNormalise);
 
         Map<String, List<IncidentHistorique>> correspondantsParSite = correspondants.stream()
                 .collect(Collectors.groupingBy(IncidentHistorique::getSiteId));
@@ -239,21 +241,32 @@ public class IncidentHistoryService {
     // a interpreter ("disponibilite de quoi, exactement ?"). Avec un
     // filtre ministere actif, c'est la disponibilite des sites de CE
     // ministere ; sans filtre, celle de tout le reseau actif.
+    //
+    // Tableau de suivi des amendements (items #19/#21/#22) : avec un
+    // filtre SITE actif (siteIdNormalise non null), la population se
+    // reduit a CE seul site - la carte "DISPONIBILITE (PERIODE)" reflete
+    // alors la disponibilite de ce site precis sur la fenetre choisie,
+    // plutot que celle de tout le ministere/reseau.
     private Double[] calculerDisponibilite(List<IncidentHistorique> correspondants,
-                                            Instant fenetreDebut, Instant fenetreFin, String ministereNormalise) {
+                                            Instant fenetreDebut, Instant fenetreFin,
+                                            String siteIdNormalise, String ministereNormalise) {
         long dureeFenetreMinutes = Duration.between(fenetreDebut, fenetreFin).toMinutes();
         if (dureeFenetreMinutes <= 0) {
             return new Double[]{null, null};
         }
 
-        List<Site> sites = ministereNormalise != null
-                ? siteRepository.findByActifTrueAndMinistere(ministereNormalise)
-                : siteRepository.findByActifTrue();
-        if (sites.isEmpty()) {
-            return new Double[]{null, null};
+        long tempsPossibleMinutes;
+        if (siteIdNormalise != null) {
+            tempsPossibleMinutes = dureeFenetreMinutes;
+        } else {
+            List<Site> sites = ministereNormalise != null
+                    ? siteRepository.findByActifTrueAndMinistere(ministereNormalise)
+                    : siteRepository.findByActifTrue();
+            if (sites.isEmpty()) {
+                return new Double[]{null, null};
+            }
+            tempsPossibleMinutes = (long) sites.size() * dureeFenetreMinutes;
         }
-
-        long tempsPossibleMinutes = (long) sites.size() * dureeFenetreMinutes;
 
         long tempsIndisponibleMinutes = correspondants.stream()
                 .mapToLong(i -> {
@@ -281,10 +294,11 @@ public class IncidentHistoryService {
     private IncidentHistoriqueDto toDto(IncidentHistorique i, Map<String, Integer> nombreIncidentsParSite,
                                          Map<String, Double> disponibiliteParSite) {
         Instant fin = i.getFinLe();
-        long dureeMinutes = Duration.between(i.getDebutLe(), fin != null ? fin : Instant.now()).toMinutes();
+        Duration duree = Duration.between(i.getDebutLe(), fin != null ? fin : Instant.now());
         return new IncidentHistoriqueDto(
                 i.getId(), i.getType(), i.getSiteId(), i.getSiteNom(), i.getVille(), i.getMinistere(),
-                i.getStatut(), i.getMessage(), i.getDebutLe(), fin, fin == null, dureeMinutes,
+                i.getStatut(), i.getMessage(), i.getDebutLe(), fin, fin == null,
+                duree.toMinutes(), duree.toSeconds(),
                 nombreIncidentsParSite.getOrDefault(i.getSiteId(), 0),
                 disponibiliteParSite.get(i.getSiteId())
         );

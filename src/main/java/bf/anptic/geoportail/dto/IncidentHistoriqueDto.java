@@ -20,6 +20,13 @@ public record IncidentHistoriqueDto(
         Instant finLe,
         boolean enCours,
         long dureeMinutes,
+        // Tableau de suivi des amendements (item #24) : meme duree que
+        // dureeMinutes, mais en secondes - precision complete pour le
+        // format "jours/heures/minutes/secondes" demande dans l'export
+        // CSV (dureeMinutes seul tronque les secondes, insuffisant pour
+        // ce format). dureeMinutes reste inchange, deja utilise par
+        // l'affichage ecran existant (formaterDureeMinutes cote frontend).
+        long dureeSecondes,
         // Section V du compte rendu des amendements : agregats calcules
         // pour LE SITE de cette ligne, sur la meme fenetre/les memes
         // filtres (date/type/ministere/recherche) que le reste de la

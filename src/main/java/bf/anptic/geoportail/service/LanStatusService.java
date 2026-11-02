@@ -132,7 +132,12 @@ public class LanStatusService {
                     ? "Tout fonctionne · " + floorActifs + " équipements sur " + floorTotal + " actifs"
                     : floorPannes + " équipement(s) hors service sur " + floorTotal;
 
-            floorStatuses.add(new FloorStatusDto(etage, floorStatus, floorActifs, floorTotal, detail, details));
+            EquipmentDetailDto equipementPrincipal = details.stream()
+                    .filter(d -> "COMMUTATEUR".equals(d.type()))
+                    .findFirst()
+                    .orElse(details.isEmpty() ? null : details.get(0));
+
+            floorStatuses.add(new FloorStatusDto(etage, floorStatus, floorActifs, floorTotal, detail, details, equipementPrincipal));
         }
 
         int pannes = total - totalActifs;

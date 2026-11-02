@@ -138,6 +138,7 @@ public class AdminIncidentController {
     public IncidentHistoriquePageDto historique(
             @RequestParam(required = false) Integer jours,
             @RequestParam(required = false) String date,
+            @RequestParam(required = false) String siteId,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String etat,
             @RequestParam(required = false) String ministere,
@@ -162,7 +163,7 @@ public class AdminIncidentController {
         int taillePage = (taille != null && taille > 0) ? taille : 20;
 
         return incidentHistoryService.rechercher(
-                fenetreDebut, fenetreFin, type, etat, ministere, recherche, numeroPage, taillePage);
+                fenetreDebut, fenetreFin, siteId, type, etat, ministere, recherche, numeroPage, taillePage);
     }
 
     // Export CSV de TOUT l'historique correspondant aux filtres actifs sur
@@ -175,6 +176,7 @@ public class AdminIncidentController {
     public ResponseEntity<byte[]> exporterHistorique(
             @RequestParam(required = false) Integer jours,
             @RequestParam(required = false) String date,
+            @RequestParam(required = false) String siteId,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String etat,
             @RequestParam(required = false) String ministere,
@@ -194,7 +196,7 @@ public class AdminIncidentController {
         }
 
         List<IncidentHistoriqueDto> incidents = incidentHistoryService.rechercherPourExport(
-                fenetreDebut, fenetreFin, type, etat, ministere, recherche);
+                fenetreDebut, fenetreFin, siteId, type, etat, ministere, recherche);
 
         String csv = construireCsv(incidents);
         byte[] corpsCsv = csv.getBytes(StandardCharsets.UTF_8);
@@ -220,22 +222,46 @@ public class AdminIncidentController {
 
     private String construireCsv(List<IncidentHistoriqueDto> incidents) {
         StringBuilder csv = new StringBuilder();
-        csv.append("Site;Ville;Ministere;Type;Statut;Etat;Debut;Fin;Duree (minutes);Nombre incidents (site);Disponibilite site (%)\r\n");
+        csv.append("Site;Ville;Ministere;Type;Statut;Criticite;Etat;Debut;Fin;Duree;Nombre incidents (site);Disponibilite site (%)\r\n");
         for (IncidentHistoriqueDto i : incidents) {
             csv.append(echapper(i.siteNom())).append(';')
                     .append(echapper(i.ville())).append(';')
                     .append(echapper(i.ministere())).append(';')
                     .append(echapper(i.type())).append(';')
                     .append(echapper(i.statut())).append(';')
+                    .append(libelleCriticite(i.statut())).append(';')
                     .append(i.enCours() ? "En cours" : "Resolu").append(';')
                     .append(FORMAT_DATE_HEURE_CSV.format(i.debutLe())).append(';')
                     .append(i.finLe() != null ? FORMAT_DATE_HEURE_CSV.format(i.finLe()) : "").append(';')
-                    .append(i.dureeMinutes()).append(';')
+                    .append(formaterDureeComplete(i.dureeSecondes())).append(';')
                     .append(i.nombreIncidentsSite()).append(';')
                     .append(i.disponibiliteSitePct() != null ? i.disponibiliteSitePct() : "")
                     .append("\r\n");
         }
         return csv.toString();
+    }
+
+    // Tableau de suivi des amendements (item #23) : niveau de criticite
+    // avec le libelle metier valide ("Moyen", pas "Mineur" - section
+    // VIII.1), plutot que le statut technique brut KO/WARN deja present
+    // dans la colonne Statut - meme mapping que cote frontend
+    // (libelleCriticite dans IncidentsHistoriquePage.jsx).
+    private String libelleCriticite(String statut) {
+        return "KO".equals(statut) ? "Critique" : "Moyen";
+    }
+
+    // Tableau de suivi des amendements (item #24) : duree d'incident au
+    // format jours/heures/minutes/secondes dans l'export CSV (l'affichage
+    // ecran garde son propre format abrege, cf. formaterDureeMinutes cote
+    // frontend - ce n'est que le fichier CSV qui doit porter ce format
+    // complet). Les 4 unites sont toujours presentes, meme a zero, pour un
+    // format regulier facile a relire/trier dans un tableur.
+    private String formaterDureeComplete(long dureeSecondes) {
+        long jours = dureeSecondes / 86400;
+        long heures = (dureeSecondes % 86400) / 3600;
+        long minutes = (dureeSecondes % 3600) / 60;
+        long secondes = dureeSecondes % 60;
+        return jours + "j " + heures + "h " + minutes + "m " + secondes + "s";
     }
 
     // Protege contre les valeurs contenant le delimiteur ";", des

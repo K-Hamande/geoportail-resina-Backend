@@ -40,16 +40,23 @@ public interface IncidentHistoriqueRepository extends JpaRepository<IncidentHist
     // c'etait le cas ici pour fenetreDebut) n'a aucun indice de type dans
     // ce contexte et Postgres refuse la requete avec l'erreur "n'a pas pu
     // determiner le type de donnees du parametre $1".
+    // "siteId" (tableau de suivi des amendements, items #19/#22) : filtre
+    // EXACT sur un site precis, choisi dans une liste deroulante cote UI -
+    // independant de "recherche" (recherche texte libre sur le nom/la
+    // ville). Parametre String, pas de souci de type ambigu pour Postgres
+    // (contrairement a fenetreDebut/fenetreFin, voir plus haut).
     @Query("""
             SELECT i FROM IncidentHistorique i
             WHERE i.debutLe < :fenetreFin
               AND (i.finLe IS NULL OR i.finLe >= :fenetreDebut)
+              AND (:siteId IS NULL OR i.siteId = :siteId)
               AND (:type IS NULL OR i.type = :type)
               AND (:ministere IS NULL OR i.ministere = :ministere)
               AND (:recherche IS NULL OR LOWER(i.siteNom) LIKE :recherche OR LOWER(i.ville) LIKE :recherche)
             """)
     List<IncidentHistorique> rechercher(@Param("fenetreDebut") Instant fenetreDebut,
                                          @Param("fenetreFin") Instant fenetreFin,
+                                         @Param("siteId") String siteId,
                                          @Param("type") String type,
                                          @Param("ministere") String ministere,
                                          @Param("recherche") String recherche);

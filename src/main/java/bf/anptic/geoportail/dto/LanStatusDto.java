@@ -24,7 +24,15 @@ public record LanStatusDto(
             int actifs,
             int total,
             String detail,
-            List<EquipmentDetailDto> equipements   // detail deplie cote frontend
+            List<EquipmentDetailDto> equipements,   // resume (statut/nom/type) de chaque equipement de l'etage
+            // Tableau de suivi des amendements (items #16/#17) : seul
+            // l'equipement PRINCIPAL d'un etage/batiment doit afficher ses
+            // informations detaillees (vendor/emplacement/trafic) - pas
+            // chaque equipement secondaire. Premier commutateur de l'etage,
+            // a defaut premier equipement (meme principe de priorite que
+            // AnpticStatusService pour le routeur WAN). Null si l'etage n'a
+            // aucun equipement.
+            EquipmentDetailDto equipementPrincipal
     ) {}
 
     public record EquipmentDetailDto(
