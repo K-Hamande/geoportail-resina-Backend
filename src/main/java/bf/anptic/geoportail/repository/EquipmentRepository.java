@@ -16,6 +16,16 @@ public interface EquipmentRepository extends JpaRepository<Equipment, Long> {
     long countBySite_SiteId(String siteId);
     Optional<Equipment> findByNetxmsObjectId(Integer netxmsObjectId);
 
+    // Retour utilisateur du 30/10/2026 ("chargement lent") : countBySite_
+    // SiteId(...) ci-dessus, appelee une fois PAR SITE (ex: dans la boucle
+    // de AdminSiteService.toSiteResponse), declenchait 1600+ requetes SQL
+    // separees des que la liste complete des sites etait chargee -
+    // contributeur probable majeur de la lenteur signalee sur plusieurs
+    // pages Backoffice (Gestion des sites, Tableau de bord, Cartographie).
+    // Cette requete groupee fait le meme calcul en UNE seule requete.
+    @Query("SELECT e.site.siteId, COUNT(e) FROM Equipment e WHERE e.site IS NOT NULL GROUP BY e.site.siteId")
+    List<Object[]> countGroupedBySiteId();
+
     // Statistiques : nombre d'equipements par type (pour le graphe du backoffice)
     @Query("SELECT e.type, COUNT(e) FROM Equipment e GROUP BY e.type ORDER BY COUNT(e) DESC")
     List<Object[]> countByType();

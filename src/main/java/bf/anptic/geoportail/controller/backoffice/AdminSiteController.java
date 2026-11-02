@@ -71,6 +71,13 @@ public class AdminSiteController {
         return adminSiteService.listAllSites(authentication);
     }
 
+    // Retour utilisateur du 30/10/2026 : evite a SiteFormPage de charger
+    // TOUTE la liste des sites pour en afficher UN seul en edition.
+    @GetMapping("/sites/{siteId}")
+    public SiteAdminResponse getSite(@PathVariable String siteId, Authentication authentication) {
+        return adminSiteService.getSite(siteId, authentication);
+    }
+
     // Statuts globaux de tous les sites - utilise par le dashboard
     // backoffice pour les KPI et le tableau des sites en anomalie.
     // Accessible uniquement depuis le backoffice (Basic Auth).

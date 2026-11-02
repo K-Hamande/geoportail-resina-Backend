@@ -131,7 +131,8 @@ public class IncidentHistoryService {
         return new IncidentHistoriquePageDto(
                 contenu, pageEffective, totalPages, totalElementsFiltres,
                 new IncidentHistoriqueStatsDto(resultat.total(), resultat.resolus(), resultat.enCours(),
-                        resultat.ko(), resultat.warn(), resultat.disponibilitePct(), resultat.indisponibilitePct())
+                        resultat.ko(), resultat.warn(), resultat.inconnu(),
+                        resultat.disponibilitePct(), resultat.indisponibilitePct())
         );
     }
 
@@ -150,7 +151,7 @@ public class IncidentHistoryService {
     }
 
     private record ResultatFiltrage(List<IncidentHistorique> filtresParEtat,
-                                     long total, long resolus, long enCours, long ko, long warn,
+                                     long total, long resolus, long enCours, long ko, long warn, long inconnu,
                                      Double disponibilitePct, Double indisponibilitePct,
                                      Map<String, Integer> nombreIncidentsParSite,
                                      Map<String, Double> disponibiliteParSite) {
@@ -172,6 +173,7 @@ public class IncidentHistoryService {
         long resolus = total - enCours;
         long ko = correspondants.stream().filter(i -> "KO".equals(i.getStatut())).count();
         long warn = correspondants.stream().filter(i -> "WARN".equals(i.getStatut())).count();
+        long inconnu = total - ko - warn;
 
         List<IncidentHistorique> filtresParEtat = correspondants.stream()
                 .filter(i -> {
@@ -198,7 +200,7 @@ public class IncidentHistoryService {
                     calculerDisponibiliteSite(entree.getValue(), fenetreDebut, fenetreFin, dureeFenetreMinutes));
         }
 
-        return new ResultatFiltrage(filtresParEtat, total, resolus, enCours, ko, warn,
+        return new ResultatFiltrage(filtresParEtat, total, resolus, enCours, ko, warn, inconnu,
                 disponibilite[0], disponibilite[1], nombreIncidentsParSite, disponibiliteParSite);
     }
 

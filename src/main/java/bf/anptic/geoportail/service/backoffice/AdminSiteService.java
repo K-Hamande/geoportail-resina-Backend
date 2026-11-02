@@ -52,7 +52,18 @@ public class AdminSiteService {
 
     public List<SiteAdminResponse> listAllSites(Authentication authentication) {
         List<Site> sites = filtrerSitesAccessibles(siteRepository.findAll(), authentication);
-        return sites.stream().map(this::toSiteResponse).toList();
+        Map<String, Integer> comptes = comptesEquipementsParSite();
+        return sites.stream().map(site -> toSiteResponse(site, comptes)).toList();
+    }
+
+    // Retour utilisateur du 30/10/2026 ("chargement lent") : la page
+    // d'edition d'un site (SiteFormPage) recuperait jusqu'ici TOUTE la
+    // liste des sites (listAllSites, potentiellement 1600+ entrees) rien
+    // que pour en retrouver UN par son id - cout inutile a chaque ouverture
+    // de la page. Cette methode ne charge que le site demande.
+    public SiteAdminResponse getSite(String siteId, Authentication authentication) {
+        verifierAccesSite(siteId, authentication);
+        return toSiteResponse(findSiteOrThrow(siteId));
     }
 
     public List<EquipmentResponse> listEquipments(String siteId, Authentication authentication) {
@@ -64,11 +75,13 @@ public class AdminSiteService {
 
     public List<CartographyItemDto> listCartography(Authentication authentication) {
         List<Site> sites = filtrerSitesAccessibles(siteRepository.findAll(), authentication);
+        Map<String, Integer> comptes = comptesEquipementsParSite();
         return sites.stream()
                 .map(site -> new CartographyItemDto(
                         site.getSiteId(), site.getNom(), site.getLatitude(), site.getLongitude(),
                         site.getInfoAuSurvol(), site.getLatitude() != null && site.getLongitude() != null,
-                        site.getVille(), site.getProvince(), site.getRegionAdministrative(), site.getMinistere()))
+                        site.getVille(), site.getProvince(), site.getRegionAdministrative(), site.getMinistere(),
+                        comptes.getOrDefault(site.getSiteId(), 0)))
                 .toList();
     }
 
@@ -364,14 +377,36 @@ public class AdminSiteService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Site introuvable : " + siteId));
     }
 
+    // Pour UN site isole (lecture/ecriture unitaire) - cout acceptable ici,
+    // une seule requete de comptage.
     private SiteAdminResponse toSiteResponse(Site site) {
         int nombreEquipements = (int) equipmentRepository.countBySite_SiteId(site.getSiteId());
+        return toSiteResponse(site, Map.of(site.getSiteId(), nombreEquipements));
+    }
+
+    // Pour une LISTE de sites (listAllSites) - le compte d'equipements est
+    // precalcule en une seule requete groupee (cf. comptesEquipementsParSite)
+    // plutot que rappelee ici site par site.
+    private SiteAdminResponse toSiteResponse(Site site, Map<String, Integer> comptesParSite) {
+        int nombreEquipements = comptesParSite.getOrDefault(site.getSiteId(), 0);
         return new SiteAdminResponse(
                 site.getSiteId(), site.getNom(), site.getVille(), site.getProvince(), site.getRegionAdministrative(),
                 site.getMinistere(), site.getBatiment(),
                 site.getLatitude(), site.getLongitude(), site.getContactDsiNom(), site.getContactDsiTelephone(),
                 site.getContactDsiEmail(), site.getNetxmsNodeId(), site.getNiveaux(), nombreEquipements, site.getActif()
         );
+    }
+
+    // Retour utilisateur du 30/10/2026 : une seule requete groupee pour
+    // TOUS les sites plutot qu'une requete de comptage par site (ancien
+    // comportement, cf. countBySite_SiteId ci-dessus) - voir le
+    // commentaire sur EquipmentRepository.countGroupedBySiteId.
+    private Map<String, Integer> comptesEquipementsParSite() {
+        Map<String, Integer> resultat = new HashMap<>();
+        for (Object[] ligne : equipmentRepository.countGroupedBySiteId()) {
+            resultat.put((String) ligne[0], ((Long) ligne[1]).intValue());
+        }
+        return resultat;
     }
 
     private EquipmentResponse toEquipmentResponse(Equipment eq) {
