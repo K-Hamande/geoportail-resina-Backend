@@ -9,6 +9,7 @@ import bf.anptic.geoportail.dto.SiteNetworkDto;
 import bf.anptic.geoportail.dto.SiteSummaryDto;
 import bf.anptic.geoportail.dto.TicketIncidentDto;
 import bf.anptic.geoportail.model.Site;
+import bf.anptic.geoportail.repository.EquipmentRepository;
 import bf.anptic.geoportail.repository.SiteRepository;
 import bf.anptic.geoportail.security.AccessScopeHolder;
 import bf.anptic.geoportail.service.AnpticStatusService;
@@ -25,6 +26,7 @@ import org.springframework.web.server.ResponseStatusException;
 import bf.anptic.geoportail.dto.SiteStatutSimpleDto;
 import bf.anptic.geoportail.model.enums.NodeStatus;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,6 +37,7 @@ import java.util.stream.Collectors;
 public class SiteController {
 
     private final SiteRepository siteRepository;
+    private final EquipmentRepository equipmentRepository;
     private final AnpticStatusService anpticStatusService;
     private final LanStatusService lanStatusService;
     private final NotificationService notificationService;
@@ -45,6 +48,7 @@ public class SiteController {
     private final AdminSupervisionService supervisionService;
 
     public SiteController(SiteRepository siteRepository,
+                           EquipmentRepository equipmentRepository,
                            AnpticStatusService anpticStatusService,
                            LanStatusService lanStatusService,
                            NotificationService notificationService,
@@ -54,6 +58,7 @@ public class SiteController {
                            ItopIncidentService itopIncidentService,
                            AdminSupervisionService supervisionService) {
         this.siteRepository = siteRepository;
+        this.equipmentRepository = equipmentRepository;
         this.anpticStatusService = anpticStatusService;
         this.lanStatusService = lanStatusService;
         this.notificationService = notificationService;
@@ -64,12 +69,31 @@ public class SiteController {
         this.supervisionService = supervisionService;
     }
 
+    // Retour utilisateur (cote decideur) : un site sans aucun equipement
+    // rattache n'a pas de statut ANPTIC/LAN exploitable et ne doit plus
+    // apparaitre dans la liste des sites d'un ministere - memes 2
+    // pipelines de synchronisation NetXMS independants (sites vs
+    // equipements) qui ont motive le meme filtre cote Backoffice
+    // (AdminSiteController - "avec equipement uniquement"). Requete
+    // groupee (1 seule requete pour tous les sites) plutot qu'un comptage
+    // par site, cf. EquipmentRepository.countGroupedBySiteId.
+    private List<Site> avecEquipement(List<Site> sites) {
+        Map<String, Integer> comptes = new HashMap<>();
+        for (Object[] ligne : equipmentRepository.countGroupedBySiteId()) {
+            comptes.put((String) ligne[0], ((Long) ligne[1]).intValue());
+        }
+        return sites.stream()
+                .filter(site -> comptes.getOrDefault(site.getSiteId(), 0) > 0)
+                .toList();
+    }
+
     @GetMapping("/sites")
     public List<SiteSummaryDto> listSites() {
         String ministere = AccessScopeHolder.getMinistere();
         List<Site> sites = ministere == null
                 ? siteRepository.findByActifTrue()
                 : siteRepository.findByActifTrueAndMinistere(ministere);
+        sites = avecEquipement(sites);
 
         Map<String, Integer> intervalles = supervisionService.getIntervallesActualisation();
         return sites.stream()
@@ -194,7 +218,11 @@ public class SiteController {
         if (ministere == null) {
             return items;
         }
-        Set<String> sitesAutorises = siteRepository.findByActifTrueAndMinistere(ministere).stream()
+        // Meme regle que listSites() ci-dessus : un site sans equipement
+        // n'est pas visible cote decideur, y compris sur la Carte et dans
+        // les alertes (ou il n'aurait de toute facon aucun statut
+        // ANPTIC/LAN exploitable).
+        Set<String> sitesAutorises = avecEquipement(siteRepository.findByActifTrueAndMinistere(ministere)).stream()
                 .map(Site::getSiteId)
                 .collect(Collectors.toSet());
         return items.stream()

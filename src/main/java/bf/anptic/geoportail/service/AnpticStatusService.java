@@ -162,17 +162,22 @@ public class AnpticStatusService {
         NodeStatus status = trafficReel ? NodeStatus.OK : statutCalcule;
         boolean disponible = status == NodeStatus.OK;
 
-        Double latenceMs = netxmsJdbcTemplate.query(SELECT_LATENCE,
-                        (rs, rowNum) -> rs.getString(1), equipement.objectId())
-                .stream().findFirst()
-                .map(AnpticStatusService::parseNombre)
-                .orElse(null);
+        // BUG CORRIGE : la colonne rdci.transformed_value peut valoir SQL
+        // NULL pour une ligne qui existe bel et bien (DCI present mais
+        // sans valeur collectee) - rs.getString(1) renvoie alors null, et
+        // Stream.findFirst() sur un flux dont le PREMIER element est null
+        // leve TOUJOURS une NullPointerException (son implementation fait
+        // Optional.of(value), jamais Optional.ofNullable). C'etait
+        // exactement le cas pour le site "ANPTIC Bogande" (DCI latence
+        // present sans valeur) - plante toute la page "Mon site" cote
+        // decideur. Acces direct a la liste plutot que .stream().findFirst().
+        List<String> latenceRows = netxmsJdbcTemplate.query(SELECT_LATENCE,
+                (rs, rowNum) -> rs.getString(1), equipement.objectId());
+        Double latenceMs = latenceRows.isEmpty() ? null : parseNombre(latenceRows.get(0));
 
-        Double perteDePaquetsPct = netxmsJdbcTemplate.query(SELECT_PERTE_PAQUETS,
-                        (rs, rowNum) -> rs.getString(1), equipement.objectId())
-                .stream().findFirst()
-                .map(AnpticStatusService::parseNombre)
-                .orElse(null);
+        List<String> perteRows = netxmsJdbcTemplate.query(SELECT_PERTE_PAQUETS,
+                (rs, rowNum) -> rs.getString(1), equipement.objectId());
+        Double perteDePaquetsPct = perteRows.isEmpty() ? null : parseNombre(perteRows.get(0));
 
         DisponibiliteRow dispo = netxmsJdbcTemplate.query(SELECT_DISPONIBILITE_30J,
                         (rs, rowNum) -> {
