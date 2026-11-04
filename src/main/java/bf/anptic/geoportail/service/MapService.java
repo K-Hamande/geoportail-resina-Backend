@@ -29,7 +29,8 @@ public class MapService {
                         s.site().getLongitude(),
                         s.statutGlobal(),
                         s.anpticStatus(),
-                        s.lanStatus()
+                        s.lanStatus(),
+                        s.graviteSite()
                 ))
                 .toList();
     }

@@ -3,6 +3,7 @@ package bf.anptic.geoportail.service;
 import bf.anptic.geoportail.model.Equipment;
 import bf.anptic.geoportail.model.Site;
 import bf.anptic.geoportail.model.enums.NodeStatus;
+import bf.anptic.geoportail.model.enums.SiteGravite;
 import bf.anptic.geoportail.repository.EquipmentRepository;
 import bf.anptic.geoportail.repository.SiteRepository;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -113,6 +114,12 @@ public class SiteStatusSnapshotService {
         NodeStatus anpticStatus = NodeStatus.UNKNOWN;
         String technologie = null;
         Instant indisponibleDepuis = null;
+        // Amendement "Tableau de bord et gestion des sites" : classement
+        // du site en 5 niveaux mutuellement exclusifs (Critique/Majeur/
+        // Moyen/Normal/Inconnu), a partir du PIRE code NetXMS brut parmi
+        // le routeur WAN et tous les equipements LAN du site - voir
+        // SiteGravite.combiner/finaliser pour le detail du mapping.
+        SiteGravite graviteSite = null;
 
         if (site.getNetxmsNodeId() != null) {
             AnpticRow row = anpticBySiteAdminId.get(site.getNetxmsNodeId());
@@ -122,6 +129,7 @@ public class SiteStatusSnapshotService {
                 if (anpticStatus != NodeStatus.OK && row.downSince() != 0) {
                     indisponibleDepuis = Instant.ofEpochSecond(row.downSince());
                 }
+                graviteSite = SiteGravite.combiner(graviteSite, row.status());
             }
         }
 
@@ -133,6 +141,7 @@ public class SiteStatusSnapshotService {
             if (NodeStatus.fromNetXmsSeverityCode(rawStatus) == NodeStatus.OK) {
                 actifs++;
             }
+            graviteSite = SiteGravite.combiner(graviteSite, rawStatus);
         }
         int pannes = total - actifs;
         NodeStatus lanStatus = total == 0 ? NodeStatus.OK
@@ -140,7 +149,8 @@ public class SiteStatusSnapshotService {
                 : pannes >= total ? NodeStatus.KO
                 : NodeStatus.WARN;
 
-        return new SiteStatusSnapshot(site, anpticStatus, technologie, indisponibleDepuis, lanStatus, pannes, total);
+        return new SiteStatusSnapshot(site, anpticStatus, technologie, indisponibleDepuis, lanStatus, pannes, total,
+                SiteGravite.finaliser(graviteSite));
     }
 
     private record AnpticRow(Integer status, String technologie, long downSince) {}

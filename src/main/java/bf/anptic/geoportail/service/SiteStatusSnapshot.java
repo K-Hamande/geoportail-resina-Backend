@@ -2,6 +2,7 @@ package bf.anptic.geoportail.service;
 
 import bf.anptic.geoportail.model.Site;
 import bf.anptic.geoportail.model.enums.NodeStatus;
+import bf.anptic.geoportail.model.enums.SiteGravite;
 
 import java.time.Instant;
 
@@ -16,7 +17,8 @@ public record SiteStatusSnapshot(
         Instant anpticIndisponibleDepuis,   // null si statut OK ou donnee absente
         NodeStatus lanStatus,
         int lanEquipementsEnPanne,
-        int lanEquipementsTotal
+        int lanEquipementsTotal,
+        SiteGravite graviteSite
 ) {
     public NodeStatus statutGlobal() {
         return NodeStatus.worstOf(anpticStatus, lanStatus);

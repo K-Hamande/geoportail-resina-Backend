@@ -120,6 +120,22 @@
     <version>1.78.1</version>
 </dependency>
 
+<!-- Amendement "Tableau de bord et gestion des sites" : export de la
+     liste des sites en Excel (.xlsx) et PDF, en remplacement de l'import
+     CSV. Apache POI pour le xlsx, OpenPDF (fork libre d'iText 4, licence
+     LGPL/MPL) pour le pdf - choix standards pour ce type de besoin,
+     aucune des deux librairies n'etait deja presente dans ce projet. -->
+<dependency>
+    <groupId>org.apache.poi</groupId>
+    <artifactId>poi-ooxml</artifactId>
+    <version>5.3.0</version>
+</dependency>
+<dependency>
+    <groupId>com.github.librepdf</groupId>
+    <artifactId>openpdf</artifactId>
+    <version>1.3.39</version>
+</dependency>
+
     </dependencies>
 
 

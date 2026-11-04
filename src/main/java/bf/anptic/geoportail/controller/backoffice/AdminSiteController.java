@@ -7,9 +7,9 @@ import bf.anptic.geoportail.dto.EquipmentStatsDto;
 import bf.anptic.geoportail.dto.MapSiteDto;
 import bf.anptic.geoportail.dto.SiteAdminRequest;
 import bf.anptic.geoportail.dto.SiteAdminResponse;
-import bf.anptic.geoportail.dto.SiteImportResultDto;
 import bf.anptic.geoportail.dto.EquipmentGraviteStatsDto;
 import bf.anptic.geoportail.model.Equipment;
+import bf.anptic.geoportail.model.enums.SiteGravite;
 import bf.anptic.geoportail.repository.EquipmentRepository;
 import bf.anptic.geoportail.repository.SiteRepository;
 import bf.anptic.geoportail.service.MapService;
@@ -17,13 +17,21 @@ import bf.anptic.geoportail.service.backoffice.AdminSiteService;
 import bf.anptic.geoportail.service.backoffice.EquipmentGraviteService;
 import bf.anptic.geoportail.service.backoffice.EquipmentSyncService;
 import bf.anptic.geoportail.service.backoffice.NetxmsSiteImportService;
+import bf.anptic.geoportail.service.backoffice.SiteExportService;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/backoffice/api/v1")
@@ -36,6 +44,7 @@ public class AdminSiteController {
     private final SiteRepository siteRepository;
     private final MapService mapService;
     private final EquipmentGraviteService equipmentGraviteService;
+    private final SiteExportService siteExportService;
 
     public AdminSiteController(AdminSiteService adminSiteService,
                                 NetxmsSiteImportService netxmsSiteImportService,
@@ -43,7 +52,8 @@ public class AdminSiteController {
                                 EquipmentRepository equipmentRepository,
                                 SiteRepository siteRepository,
                                 MapService mapService,
-                                EquipmentGraviteService equipmentGraviteService) {
+                                EquipmentGraviteService equipmentGraviteService,
+                                SiteExportService siteExportService) {
         this.adminSiteService = adminSiteService;
         this.netxmsSiteImportService = netxmsSiteImportService;
         this.equipmentSyncService = equipmentSyncService;
@@ -51,6 +61,7 @@ public class AdminSiteController {
         this.siteRepository = siteRepository;
         this.mapService = mapService;
         this.equipmentGraviteService = equipmentGraviteService;
+        this.siteExportService = siteExportService;
     }
 
     @PostMapping("/sites/import-netxms")
@@ -58,12 +69,53 @@ public class AdminSiteController {
         return netxmsSiteImportService.importSitesResina();
     }
 
-    // Import CSV de sites (section VI du compte rendu des amendements),
-    // en complement de la synchro NetXMS ci-dessus.
-    @PostMapping("/sites/import-csv")
-    public SiteImportResultDto importSitesFromCsv(@RequestParam("fichier") MultipartFile fichier,
-                                                    Authentication authentication) {
-        return adminSiteService.importerSitesCsv(fichier, authentication.getName(), authentication);
+    // Amendement "Tableau de bord et gestion des sites" : export de la
+    // liste des sites en Excel ou PDF, en remplacement du bouton
+    // "Importer (CSV)" (voir SiteExportService). "siteIds" (optionnel,
+    // virgule-separes) restreint l'export a cette liste precise - le
+    // frontend y passe les sites DEJA FILTRES affiches a l'ecran, pour
+    // que l'export respecte les filtres/la recherche actifs sans
+    // dupliquer cette logique de filtrage cote serveur. Sans ce
+    // parametre, exporte tous les sites.
+    @GetMapping("/sites/export")
+    public ResponseEntity<byte[]> exporterSites(
+            @RequestParam String format,
+            @RequestParam(required = false) String siteIds,
+            Authentication authentication) {
+
+        List<SiteAdminResponse> tousLesSites = adminSiteService.listAllSites(authentication);
+        List<SiteAdminResponse> sites;
+        if (siteIds != null && !siteIds.isBlank()) {
+            var idsDemandes = Arrays.stream(siteIds.split(",")).map(String::trim).collect(Collectors.toSet());
+            sites = tousLesSites.stream().filter(s -> idsDemandes.contains(s.siteId())).toList();
+        } else {
+            sites = tousLesSites;
+        }
+
+        Map<String, SiteGravite> graviteParSite = mapService.listSitesForMap().stream()
+                .collect(Collectors.toMap(MapSiteDto::siteId, MapSiteDto::graviteSite, (a, b) -> a));
+
+        byte[] contenu;
+        String contentType;
+        String extension;
+        if ("pdf".equalsIgnoreCase(format)) {
+            contenu = siteExportService.exporterPdf(sites, graviteParSite);
+            contentType = "application/pdf";
+            extension = "pdf";
+        } else if ("xlsx".equalsIgnoreCase(format)) {
+            contenu = siteExportService.exporterExcel(sites, graviteParSite);
+            contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            extension = "xlsx";
+        } else {
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Format d'export non supporté : " + format + " (attendu : xlsx ou pdf)");
+        }
+
+        String nomFichier = "sites-resina-" + LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE) + "." + extension;
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + nomFichier + "\"")
+                .contentType(MediaType.parseMediaType(contentType))
+                .body(contenu);
     }
 
     @GetMapping("/sites")

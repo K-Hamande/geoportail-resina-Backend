@@ -1,13 +1,17 @@
 package bf.anptic.geoportail.dto;
 
 import bf.anptic.geoportail.model.enums.NodeStatus;
+import bf.anptic.geoportail.model.enums.SiteGravite;
 
 // Renvoye cote DECIDEUR : vue "Carte" (Amendement 1, Annexe A.2).
 // Chaque marqueur est colore selon statutGlobal (vert=OK, orange=WARN,
 // rouge=KO). statutAnptic/statutLan sont exposes en plus pour que le
 // backoffice (tableau de bord) puisse construire son tableau "sites en
 // anomalie" SANS refaire 2 appels par site - tout est deja calcule en
-// une seule passe par SiteStatusSnapshotService.
+// une seule passe par SiteStatusSnapshotService. graviteSite (Critique/
+// Majeur/Moyen/Normal/Inconnu) alimente le tableau de bord Backoffice
+// (amendement "Tableau de bord et gestion des sites") - inutilise cote
+// decideur pour l'instant, mais expose ici car deja calcule.
 public record MapSiteDto(
         String siteId,
         String nom,
@@ -16,5 +20,6 @@ public record MapSiteDto(
         Double longitude,
         NodeStatus statutGlobal,
         NodeStatus statutAnptic,
-        NodeStatus statutLan
+        NodeStatus statutLan,
+        SiteGravite graviteSite
 ) {}
