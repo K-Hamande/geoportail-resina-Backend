@@ -105,7 +105,7 @@ public class AdminIncidentController {
 
     private String construireCsvItop(List<ItopTicketHistoriqueDto> tickets) {
         StringBuilder csv = new StringBuilder();
-        csv.append("Reference;Titre;Ministere;Statut;Debut;Cloture;Nombre tickets (ministere)\r\n");
+        csv.append("Reference;Titre;Structure;Statut;Debut;Cloture;Nombre tickets (structure)\r\n");
         for (ItopTicketHistoriqueDto t : tickets) {
             csv.append(echapper(t.ref())).append(';')
                     .append(echapper(t.titre())).append(';')
