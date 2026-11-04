@@ -18,7 +18,9 @@ public record SiteStatusSnapshot(
         NodeStatus lanStatus,
         int lanEquipementsEnPanne,
         int lanEquipementsTotal,
-        SiteGravite graviteSite
+        SiteGravite graviteSite,
+        SiteGravite graviteAnptic,
+        SiteGravite graviteLan
 ) {
     public NodeStatus statutGlobal() {
         return NodeStatus.worstOf(anpticStatus, lanStatus);

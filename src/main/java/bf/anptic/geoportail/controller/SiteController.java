@@ -178,19 +178,13 @@ public class SiteController {
     // page Alertes, distincte des tickets iTop ci-dessus (/incidents).
     // C'est l'ancien contenu de /incidents avant l'integration iTop.
     //
-    // Tableau de suivi des amendements (item #10) : seules les alertes
-    // CRITIQUES (statut KO) sont presentees ici desormais - les WARN
-    // (degrade) ne sont plus listees dans l'espace alertes. Filtre fait
-    // ICI, pas dans IncidentService.listIncidents() : ce dernier est aussi
-    // utilise par IncidentHistoryService pour alimenter l'historique
-    // complet (incident_historique), qui doit lui continuer a enregistrer
-    // TOUS les niveaux (WARN compris), cf. section V.
+    // Retour utilisateur : affiche desormais TOUS les niveaux (pas
+    // seulement les critiques comme precedemment, cf. ancien filtre
+    // "item #10" retire) - deja TRIEES par ordre de criticite decroissant
+    // (Critique, Majeur, Moyen...) par IncidentService.listIncidents().
     @GetMapping("/alertes-reseau")
     public List<IncidentDto> listAlertesReseau() {
-        List<IncidentDto> incidentsCritiques = incidentService.listIncidents().stream()
-                .filter(i -> i.nouveauStatut() == NodeStatus.KO)
-                .toList();
-        return filtrerParMinistere(incidentsCritiques, IncidentDto::siteId);
+        return filtrerParMinistere(incidentService.listIncidents(), IncidentDto::siteId);
     }
 
     private void verifierAccesSite(String siteId) {

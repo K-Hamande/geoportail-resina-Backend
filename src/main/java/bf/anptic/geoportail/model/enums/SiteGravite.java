@@ -35,13 +35,24 @@ public enum SiteGravite {
         };
     }
 
-    private int rang() {
+    // Public : utilise aussi par IncidentService pour trier les alertes
+    // decideur par ordre de criticite (Critique, Majeur, Moyen, ...).
+    public int rang() {
         return switch (this) {
             case NORMAL -> 0;
             case MOYEN, INCONNU -> 1;
             case MAJEUR -> 2;
             case CRITIQUE -> 3;
         };
+    }
+
+    // Classification directe d'UN SEUL code NetXMS (pas une combinaison de
+    // plusieurs equipements) - utilise pour la gravite d'UNE alerte
+    // ANPTIC ou LAN precise (page decideur "Alertes"), par opposition a
+    // combiner/finaliser qui agregent plusieurs equipements pour la
+    // gravite globale d'un SITE (tableau de bord Backoffice).
+    public static SiteGravite depuisUnCode(Integer code) {
+        return finaliser(depuisCodeConnu(code));
     }
 
     // Combine le code d'UN equipement (routeur WAN ou equipement LAN) avec

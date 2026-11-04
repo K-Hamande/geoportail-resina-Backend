@@ -119,7 +119,13 @@ public class SiteStatusSnapshotService {
         // Moyen/Normal/Inconnu), a partir du PIRE code NetXMS brut parmi
         // le routeur WAN et tous les equipements LAN du site - voir
         // SiteGravite.combiner/finaliser pour le detail du mapping.
+        // graviteAnptic/graviteLan sont les MEMES niveaux mais calcules
+        // separement pour chaque sous-systeme (pas combines) - utilises
+        // par IncidentService pour trier les alertes decideur par
+        // criticite (Critique/Majeur/Moyen) plutot que par le seul statut
+        // agrege OK/WARN/KO.
         SiteGravite graviteSite = null;
+        Integer codeAnptic = null;
 
         if (site.getNetxmsNodeId() != null) {
             AnpticRow row = anpticBySiteAdminId.get(site.getNetxmsNodeId());
@@ -129,19 +135,23 @@ public class SiteStatusSnapshotService {
                 if (anpticStatus != NodeStatus.OK && row.downSince() != 0) {
                     indisponibleDepuis = Instant.ofEpochSecond(row.downSince());
                 }
-                graviteSite = SiteGravite.combiner(graviteSite, row.status());
+                codeAnptic = row.status();
+                graviteSite = SiteGravite.combiner(graviteSite, codeAnptic);
             }
         }
+        SiteGravite graviteAnptic = SiteGravite.depuisUnCode(codeAnptic);
 
         List<Equipment> equipements = equipmentsBySiteId.getOrDefault(site.getSiteId(), List.of());
         int total = equipements.size();
         int actifs = 0;
+        SiteGravite graviteLan = null;
         for (Equipment eq : equipements) {
             Integer rawStatus = statutParObjectId.get(eq.getNetxmsObjectId());
             if (NodeStatus.fromNetXmsSeverityCode(rawStatus) == NodeStatus.OK) {
                 actifs++;
             }
             graviteSite = SiteGravite.combiner(graviteSite, rawStatus);
+            graviteLan = SiteGravite.combiner(graviteLan, rawStatus);
         }
         int pannes = total - actifs;
         NodeStatus lanStatus = total == 0 ? NodeStatus.OK
@@ -150,7 +160,7 @@ public class SiteStatusSnapshotService {
                 : NodeStatus.WARN;
 
         return new SiteStatusSnapshot(site, anpticStatus, technologie, indisponibleDepuis, lanStatus, pannes, total,
-                SiteGravite.finaliser(graviteSite));
+                SiteGravite.finaliser(graviteSite), graviteAnptic, SiteGravite.finaliser(graviteLan));
     }
 
     private record AnpticRow(Integer status, String technologie, long downSince) {}

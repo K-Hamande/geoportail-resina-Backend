@@ -39,6 +39,7 @@ public class IncidentService {
                         ville,
                         ministere,
                         s.anpticStatus(),
+                        s.graviteAnptic(),
                         "La connexion ANPTIC n'est pas disponible"
                                 + (s.anpticTechnologie() != null ? " (" + LiaisonLabels.libelle(s.anpticTechnologie()) + ")" : ""),
                         s.anpticIndisponibleDepuis() != null ? s.anpticIndisponibleDepuis() : Instant.now()
@@ -54,15 +55,20 @@ public class IncidentService {
                         ville,
                         ministere,
                         s.lanStatus(),
+                        s.graviteLan(),
                         s.lanEquipementsEnPanne() + " équipement(s) hors service sur " + s.lanEquipementsTotal(),
                         Instant.now()
                 ));
             }
         }
 
-        // Les plus recents/graves en premier : KO avant WARN, puis par date.
+        // Retour utilisateur : les alertes decideur sont desormais triees
+        // par ORDRE DE CRITICITE fin (Critique, Majeur, Moyen, ...) via
+        // SiteGravite.rang(), plutot que par le seul OK/WARN/KO agrege -
+        // permet de distinguer Majeur de Critique (tous deux KO avant ce
+        // changement). A gravite egale, les plus recentes d'abord.
         incidents.sort((a, b) -> {
-            int parGravite = b.nouveauStatut().severityRank() - a.nouveauStatut().severityRank();
+            int parGravite = b.gravite().rang() - a.gravite().rang();
             if (parGravite != 0) return parGravite;
             return b.survenuLe().compareTo(a.survenuLe());
         });

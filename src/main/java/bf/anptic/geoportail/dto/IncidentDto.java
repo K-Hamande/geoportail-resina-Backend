@@ -1,6 +1,7 @@
 package bf.anptic.geoportail.dto;
 
 import bf.anptic.geoportail.model.enums.NodeStatus;
+import bf.anptic.geoportail.model.enums.SiteGravite;
 
 import java.time.Instant;
 
@@ -20,6 +21,12 @@ public record IncidentDto(
                                 // sert a cibler les alertes email vers les decideurs
                                 // de ce ministere (cf. IncidentAlertScheduler)
         NodeStatus nouveauStatut,
+        // Retour utilisateur : niveau de criticite fin (Critique/Majeur/
+        // Moyen), calcule depuis le code NetXMS brut de CE sous-systeme
+        // precis (ANPTIC ou LAN) - voir SiteGravite.depuisUnCode. Sert a
+        // trier/afficher la page decideur "Alertes" par ordre de
+        // criticite plutot que par le seul OK/WARN/KO de nouveauStatut.
+        SiteGravite gravite,
         String message,
         Instant survenuLe
 ) {}
